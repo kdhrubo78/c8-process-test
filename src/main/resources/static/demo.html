@@ -80,6 +80,7 @@
   <a href="#/appendix-b" data-nav="appendix-b">B</a>
   <a href="#/appendix-c" data-nav="appendix-c">C</a>
   <a href="#/appendix-d" data-nav="appendix-d">D</a>
+  <a href="#/appendix-e" data-nav="appendix-e">E</a>
 </div>
 
 <img src="camunda-logo-black.svg" alt="Camunda" class="logo-overlay" id="persistent-logo">
@@ -670,41 +671,65 @@ client.newDeployResourceCommand()
 <section>
   <h2>Versioning of Decisions</h2>
   <table style="font-size:0.55em;">
-    <thead><tr><th>Scenario</th><th>What happens</th><th>Example</th></tr></thead>
+    <thead><tr><th>Scenario</th><th>What happens</th></tr></thead>
     <tbody>
       <tr>
-        <td><strong>New instance</strong></td>
-        <td>Uses latest version by default</td>
-        <td><code>.latestVersion()</code></td>
+        <td><strong>Deploy new DMN version</strong></td>
+        <td>New version becomes "latest" automatically</td>
       </tr>
       <tr>
-        <td><strong>Pinned instance</strong></td>
-        <td>Always uses specified version</td>
-        <td><code>.version(2)</code></td>
+        <td><strong>New process instance</strong></td>
+        <td>Business Rule Task evaluates latest DMN version when it executes</td>
       </tr>
       <tr>
-        <td><strong>Running instance</strong></td>
-        <td>Stays on the version it started with</td>
-        <td>Instance on v1 keeps using v1 DMN rules</td>
+        <td><strong>Running instance (hasn't reached BRT)</strong></td>
+        <td>Will pick up the new DMN version when it gets there</td>
       </tr>
       <tr>
-        <td><strong>Migrate running</strong></td>
-        <td>Move to new BPMN version via migration API</td>
-        <td><code>POST /process-instances/{key}/migration</code></td>
+        <td><strong>Running instance (already past BRT)</strong></td>
+        <td>Unaffected — decision was already evaluated</td>
       </tr>
       <tr>
         <td><strong>Rollback</strong></td>
-        <td>Re-deploy old version → becomes new "latest"</td>
-        <td>Deploy v1 again → new instances use v1</td>
+        <td>Re-deploy old DMN → becomes new "latest"</td>
       </tr>
     </tbody>
   </table>
 </section>
 
 <section>
+  <h2>Decision Binding in Business Rule Task</h2>
+  <div style="display:flex; gap:1.5em; align-items:flex-start;">
+    <div style="flex:1;">
+      <img src="brt-binding.png" alt="Business Rule Task binding property in Camunda Modeler" style="max-width:100%; border:1px solid #ddd; border-radius:6px;">
+    </div>
+    <div style="flex:1; text-align:left;">
+      <table style="font-size:0.48em;">
+        <thead><tr><th>Binding</th><th>Which DMN version runs</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong><code>latest</code></strong></td>
+            <td>Most recently deployed version at the time the task executes. DMN-only deploys take effect immediately.</td>
+          </tr>
+          <tr>
+            <td><strong><code>deployment</code></strong></td>
+            <td>The DMN version deployed <em>together with</em> this BPMN. Locks them as a bundle for guaranteed consistency.</td>
+          </tr>
+          <tr>
+            <td><strong><code>versionTag</code></strong></td>
+            <td>A specific DMN version identified by a tag string (e.g., <code>v2.1-stable</code>). Pin to a known-good version.</td>
+          </tr>
+        </tbody>
+      </table>
+      <p style="font-size:0.45em; margin-top:0.6em; color:#666;">The <strong>Binding</strong> property is set per Business Rule Task in the Camunda Modeler under <em>Called decision</em>.</p>
+    </div>
+  </div>
+</section>
+
+<section>
   <h2>Updating Running Instances</h2>
-  <h3>Can a running process use new DMN rules?</h3>
-  <table style="font-size:0.55em;">
+  <h3 style="font-size:0.55em;">Can a running process use new DMN rules?</h3>
+  <table style="font-size:0.38em;">
     <thead><tr><th>Method</th><th>How</th><th>DMN version</th></tr></thead>
     <tbody>
       <tr>
@@ -714,28 +739,40 @@ client.newDeployResourceCommand()
       </tr>
       <tr>
         <td><strong>Migrate BPMN</strong></td>
-        <td>Call migration API with mapping instructions</td>
+        <td>Call migration API or Operate UI</td>
         <td>Business rule task re-links to new BPMN's DMN ref</td>
       </tr>
     </tbody>
   </table>
-  <h3 style="margin-top:0.3em;">Migration API example</h3>
-  <pre><code class="bash" data-trim data-noescape>
-# Migrate running instance to BPMN v2 (which calls DMN v2)
-curl -X POST https://&lt;cluster&gt;/v2/process-instances/2251799813685300/migration \
+  <div style="display:flex; gap:1em; margin-top:0.3em; align-items:flex-start;">
+    <div style="flex:1;">
+      <h3 style="font-size:0.45em; margin:0 0 0.2em 0;">Migration API</h3>
+      <pre style="font-size:0.32em;"><code class="bash" data-trim data-noescape>
+curl -X POST https://&lt;cluster&gt;/v2/process-instances/{key}/migration \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "targetProcessDefinitionKey": "2251799813685400",
+    "targetProcessDefinitionKey": "&lt;new-key&gt;",
     "mappingInstructions": [{
       "sourceElementId": "Task_EvaluateLoan",
       "targetElementId": "Task_EvaluateLoan"
     }]
   }'
-  </code></pre>
-  <p style="font-size:0.55em; color:#888;">Note: migration does not re-evaluate already completed elements. Only future task executions use the new DMN version.</p>
-  <p style="font-size:0.6em; margin-top:0.2em;">
-    <strong>Or use Operate UI</strong>: Select instances → click <strong>Migrate</strong> → pick target version → map flow nodes → confirm.<br>
+      </code></pre>
+    </div>
+    <div style="flex:1; text-align:left; font-size:0.35em; line-height:1.5;">
+      <h3 style="font-size:1.3em; margin:0 0 0.3em 0;">What each field does</h3>
+      <ul style="margin:0; padding-left:1.2em;">
+        <li><strong>process-instances/{key}</strong> — the running instance to migrate</li>
+        <li><strong>targetProcessDefinitionKey</strong> — the new BPMN version to move to</li>
+        <li><strong>mappingInstructions</strong> — maps each active element from old BPMN to new BPMN</li>
+        <li><strong>sourceElementId / targetElementId</strong> — same ID if the element hasn't been renamed</li>
+      </ul>
+      <p style="margin-top:0.5em; color:#888;">Already completed elements are not re-evaluated. Only future task executions use the new DMN version.</p>
+    </div>
+  </div>
+  <p style="font-size:0.4em; margin-top:0.3em;">
+    <strong>Also available in Operate UI</strong>: Select instances &rarr; <strong>Migrate</strong> &rarr; pick target version &rarr; map flow nodes &rarr; confirm. No API calls needed.<br>
     <a href="https://docs.camunda.io/docs/components/operate/userguide/process-instance-migration/" target="_blank" style="color:var(--camunda-orange);">Operate Migration Guide</a>
   </p>
 </section>
@@ -806,6 +843,46 @@ curl -X POST https://&lt;cluster&gt;/v2/process-instances/2251799813685300/migra
   </div>
   <p style="font-size:0.55em;">
     Camunda never sees PHI. Your app resolves tokens to real data only when needed.
+  </p>
+</section>
+
+<section>
+  <h2>Tokenization — Example</h2>
+  <div style="display:flex; gap:1.2em; align-items:flex-start;">
+    <div style="flex:1; text-align:left;">
+      <h3 style="font-size:0.55em; margin:0 0 0.3em 0; color:#c0392b;">Without tokenization</h3>
+      <pre style="font-size:0.34em; background:#fff5f5;"><code data-trim data-noescape>
+// Sent to Camunda — PHI exposed!
+{
+  "patient_name": "John Smith",
+  "ssn": "123-45-6789",
+  "diagnosis": "Type 2 Diabetes",
+  "interest_rate": 6.0,
+  "requested_loan": 50000,
+  "monthly_income": 3000
+}
+      </code></pre>
+      <p style="font-size:0.35em; color:#c0392b;">Camunda stores PHI — you inherit HIPAA/GDPR compliance on that system.</p>
+    </div>
+    <div style="flex:1; text-align:left;">
+      <h3 style="font-size:0.55em; margin:0 0 0.3em 0; color:#27ae60;">With tokenization</h3>
+      <pre style="font-size:0.34em; background:#f5fff5;"><code data-trim data-noescape>
+// Sent to Camunda — only a reference token
+{
+  "application_id": "APP-78291",
+  "interest_rate": 6.0,
+  "requested_loan": 50000,
+  "monthly_income": 3000
+}
+
+// PHI stays in YOUR encrypted DB
+// APP-78291 → John Smith, 123-45-6789, ...
+      </code></pre>
+      <p style="font-size:0.35em; color:#27ae60;">Camunda only sees an opaque ID. A breach exposes nothing.</p>
+    </div>
+  </div>
+  <p style="font-size:0.4em; margin-top:0.4em; color:#666;">
+    Your app resolves <code>APP-78291</code> back to the real patient record only when needed — Camunda never touches PHI.
   </p>
 </section>
 

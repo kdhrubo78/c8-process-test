@@ -1,0 +1,21 @@
+Migration Mapping Instructions - Explained
+
+The `mappingInstructions` tells the engine how to map active flow nodes from the old BPMN version to the new one during migration.
+
+When a process instance is mid-flight, it has tokens sitting on specific elements (e.g., a task waiting to execute). The engine needs to know: "this token on element X in BPMN v1 — where should it go in BPMN v2?"
+
+Example:
+
+  "mappingInstructions": [{
+    "sourceElementId": "Task_EvaluateLoan",
+    "targetElementId": "Task_EvaluateLoan"
+  }]
+
+This says: "if a token is currently at Task_EvaluateLoan in the old BPMN, place it at Task_EvaluateLoan in the new BPMN." Same ID here because the element wasn't renamed — but if v2 renamed it to Task_EvaluateLoanV2, you'd map accordingly.
+
+Key points:
+
+- You only need to map elements where tokens are currently waiting — not every element in the process.
+- If the element ID is the same in both versions, you still need to explicitly map it.
+- Elements the instance has already passed through are ignored — their results are already stored as process variables.
+- If a token is on an element that has no mapping, the migration will fail.

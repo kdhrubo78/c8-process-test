@@ -23,16 +23,21 @@ A Spring Boot application demonstrating how to test Camunda 8 BPMN processes wit
 src/
   main/
     java/com/camunda/c8processtest/
-      C8ProcessTestApplication.java       # Spring Boot app with @Deployment annotation
+      C8ProcessTestApplication.java         # Spring Boot app with @Deployment annotation
     resources/
       bpmn/
-        loan-approval.bpmn               # BPMN process definition
+        loan-approval.bpmn                  # BPMN process definition
       dmn/
-        loan-approval.dmn                # DMN decision table (DRD with 3 decisions)
+        loan-approval.dmn                   # DMN decision table (DRD with 3 decisions)
+      static/
+        demo.html                           # Reveal.js presentation deck
+        *.svg                               # Diagram assets (process, DRD, architecture)
       application.properties
+      application-demo.properties           # Demo profile (disables Camunda auto-config)
   test/
     java/com/camunda/c8processtest/
-      LoanApprovalProcessTest.java       # Process integration tests (6 scenarios)
+      LoanApprovalProcessTest.java          # End-to-end process tests (6 scenarios)
+      DmnDecisionTest.java                  # Isolated DMN decision tests (17 scenarios)
 ```
 
 ## The BPMN Process
@@ -118,7 +123,7 @@ Inputs: `probability` (from Profitability decision), `risk` (from Risk decision)
 
 ## How the Tests Work
 
-The test class `LoanApprovalProcessTest` uses two key annotations:
+Both test classes use the same annotations:
 
 - `@SpringBootTest` — boots the full Spring application context.
 - `@CamundaSpringProcessTest` — provided by the Camunda test library. This annotation:
@@ -128,9 +133,9 @@ The test class `LoanApprovalProcessTest` uses two key annotations:
   - Resets the engine state between tests for isolation.
   - Generates a **process coverage report** after tests complete.
 
-### Test Scenarios
+### Process Tests (`LoanApprovalProcessTest`)
 
-The tests cover 6 scenarios across all DMN decision paths — 3 approval cases and 3 rejection cases:
+End-to-end tests that start a process instance and assert the final outcome. Covers 6 scenarios — 3 approval cases and 3 rejection cases:
 
 | Test | Interest Rate | Loan | Income | Profitability | Risk | Result |
 |---|---|---|---|---|---|---|
@@ -141,12 +146,27 @@ The tests cover 6 scenarios across all DMN decision paths — 3 approval cases a
 | `shouldRejectLoan_mediumProfitabilityHighRisk` | 3.0 | 200,000 | 2,000 | medium | high | **rejected** |
 | `shouldRejectLoan_lowProfitabilityMediumRisk` | 1.5 | 50,000 | 3,000 | low | medium | **rejected** |
 
+### DMN Decision Tests (`DmnDecisionTest`)
+
+Tests each DMN decision in isolation — without running the BPMN process — using `newEvaluateDecisionCommand()`. Organized as 3 nested classes:
+
+| Nested Class | Decision ID | Tests | What it validates |
+|---|---|---|---|
+| `ProfitabilityDecision` | `probability` | 5 | All interest rate / loan amount combinations |
+| `RiskDecision` | `risk` | 6 | All loan amount / income combinations |
+| `LoanApprovalDecision` | `loan_approval` | 6 | Full DRD evaluation (all 3 decisions), verifies matched rule index and decision output |
+
 ### Test Flow
 
-Each test follows the same pattern:
+**Process tests** follow this pattern:
 
 1. **Create a process instance with `.withResult()`** — starts the `loan-approval` process with specific input variables and waits for it to complete, returning a `ProcessInstanceResult` with all final variables.
 2. **Assert the decision outcome** — checks that `loan_decision` equals `true` (approved) or `false` (rejected) based on the DMN evaluation.
+
+**DMN tests** follow this pattern:
+
+1. **Evaluate a decision directly** — calls `newEvaluateDecisionCommand()` with the decision ID and input variables.
+2. **Assert the output and matched rule** — checks the decision output value and verifies the correct rule index was matched.
 
 Since the process uses a Business Rule Task (not a Service Task), no manual job activation is needed — the DMN is evaluated automatically by the Camunda engine.
 
@@ -158,10 +178,16 @@ Since the process uses a Business Rule Task (not a Service Task), no manual job 
 ./mvnw test
 ```
 
-### Run only the loan approval process test
+### Run the process tests
 
 ```bash
 ./mvnw test -Dtest=LoanApprovalProcessTest
+```
+
+### Run the DMN decision tests
+
+```bash
+./mvnw test -Dtest=DmnDecisionTest
 ```
 
 ### Run a specific test method

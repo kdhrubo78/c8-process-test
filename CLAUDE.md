@@ -32,7 +32,7 @@ This project uses the Maven wrapper (`./mvnw`). No local Maven installation requ
 - **Main app**: `C8ProcessTestApplication` — Spring Boot entry point with `@Deployment` annotation that auto-deploys all `.bpmn` and `.dmn` resources
 - **BPMN process**: `src/main/resources/bpmn/loan-approval.bpmn` — Business Rule Task calls DMN, XOR gateway routes to approved/rejected end events based on `loan_decision` variable
 - **DMN decision**: `src/main/resources/dmn/loan-approval.dmn` — DRD with 3 decisions: Profitability (id: `probability`), Risk (id: `risk`), and Loan Approval (id: `loan_approval`) which combines both
-- **Tests**: `LoanApprovalProcessTest` — 6 scenarios (3 approval, 3 rejection) using `@CamundaSpringProcessTest` which manages the Testcontainers lifecycle, deploys resources, and resets state between tests
+- **Tests**: `LoanApprovalProcessTest` — 6 end-to-end process scenarios (3 approval, 3 rejection); `DmnDecisionTest` — 17 isolated DMN decision tests (5 profitability + 6 risk + 6 approval) using nested classes. Both use `@CamundaSpringProcessTest` which manages the Testcontainers lifecycle, deploys resources, and resets state between tests
 
 ## Key Gotchas
 

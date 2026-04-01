@@ -649,13 +649,13 @@ loan_approval v1  →  loan_approval v2  →  loan_approval v3
 
 ### Key behaviors
 
-| Behavior | Detail |
-|----------|--------|
-| **Auto-increment** | Each deploy creates a new version automatically |
-| **Running instances** | Continue on the version they started with |
-| **New instances** | Use `latestVersion()` or pin to a specific version |
-| **Rollback** | Deploy the previous version → becomes the new "latest" |
-| **Audit trail** | Full history of all deployed versions |
+| Scenario | What happens |
+|----------|--------------|
+| **Deploy new DMN version** | New version becomes "latest" automatically |
+| **New process instance** | Business Rule Task evaluates latest DMN version when it executes |
+| **Running instance (hasn't reached BRT)** | Will pick up the new DMN version when it gets there |
+| **Running instance (already past BRT)** | Unaffected — decision was already evaluated |
+| **Rollback** | Re-deploy old DMN → becomes new "latest" |
 
 ---
 
