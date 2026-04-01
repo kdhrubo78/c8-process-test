@@ -1,0 +1,1427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Camunda 8 DMN Deep Dive</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/white.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/monokai.css">
+<style>
+  :root {
+    --camunda-orange: #fc5d0d;
+    --camunda-dark: #1a1a2e;
+    --camunda-gray: #f4f4f4;
+  }
+  .reveal { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; }
+  .reveal h1, .reveal h2, .reveal h3 { color: var(--camunda-dark); font-weight: 700; }
+  .reveal h1 { font-size: 1.8em; }
+  .reveal h2 { font-size: 1.2em; border-bottom: 3px solid var(--camunda-orange); padding-bottom: 0.2em; display: inline-block; text-transform: uppercase; }
+  .reveal h3 { font-size: 0.85em; color: #555; }
+  .reveal .accent { color: var(--camunda-orange); }
+  .reveal .dim { color: #999; font-style: italic; }
+  .reveal table { font-size: 0.6em; margin: 0.5em auto; border-collapse: collapse; }
+  .reveal table th { background: var(--camunda-dark); color: #fff; padding: 0.4em 0.8em; }
+  .reveal table td { padding: 0.35em 0.8em; border-bottom: 1px solid #ddd; }
+  .reveal table tr:nth-child(even) { background: var(--camunda-gray); }
+  .reveal pre { font-size: 0.5em; box-shadow: none; }
+  .reveal code { font-family: 'JetBrains Mono', 'Fira Code', monospace; }
+  .reveal .comparison-table td:first-child { color: #c0392b; }
+  .reveal .comparison-table td:last-child { color: #27ae60; }
+  .reveal .slide-number { color: var(--camunda-orange); }
+  .reveal .drd-diagram { font-family: monospace; font-size: 0.5em; line-height: 1.5; text-align: center; background: var(--camunda-gray); padding: 0.8em; border-radius: 8px; }
+  .reveal .drd-diagram pre { font-size: 1em; background: none; box-shadow: none; text-align: center; }
+  .reveal .tag { display: inline-block; background: var(--camunda-orange); color: #fff; padding: 0.1em 0.5em; border-radius: 4px; font-size: 0.7em; margin: 0.1em; }
+  .reveal .flow-diagram { font-family: monospace; font-size: 0.55em; line-height: 1.6; background: var(--camunda-gray); padding: 1em; border-radius: 8px; text-align: left; display: inline-block; }
+  /* Section title slides */
+  /* Push slide content to top */
+  .reveal .slides section { top: 0 !important; display: flex !important; flex-direction: column !important; justify-content: flex-start !important; padding-top: 0.5em !important; }
+  .reveal .slides section.section-title { justify-content: center !important; }
+  .section-title h1 { font-size: 1.2em; color: var(--camunda-orange); margin-bottom: 0; letter-spacing: 0.05em; border: none; font-variant: small-caps; }
+  .section-title h2 { font-size: 2em; border-bottom: none; }
+  /* Two-column layout */
+  .two-col { display: flex; gap: 1.5em; justify-content: center; font-size: 0.75em; }
+  .two-col > div { flex: 1; background: var(--camunda-gray); padding: 1.2em; border-radius: 8px; text-align: left; }
+  .two-col h3 { margin-top: 0; color: var(--camunda-dark); }
+  /* Persistent logo */
+  .logo-overlay { position: fixed; top: 18px; left: 24px; z-index: 100; height: 28px; pointer-events: none; transition: filter 0.3s; }
+  .dark-bg-active .logo-overlay { filter: brightness(0) invert(1); }
+  /* Fullscreen button */
+  .fullscreen-btn { position: fixed; bottom: 18px; right: 18px; z-index: 100; background: var(--camunda-dark); color: #fff; border: none; border-radius: 6px; padding: 8px 14px; font-size: 14px; cursor: pointer; opacity: 0.4; transition: opacity 0.2s; }
+  .fullscreen-btn:hover { opacity: 1; }
+  /* Persistent nav bar */
+  .nav-bar { position: fixed; top: 0; left: 0; right: 0; z-index: 99; background: var(--camunda-dark); display: flex; justify-content: center; gap: 0; padding: 0; height: 28px; align-items: center; transition: opacity 0.3s; opacity: 0.85; }
+  .nav-bar:hover { opacity: 1; }
+  .nav-bar a { color: #aaa; text-decoration: none; font-size: 11px; padding: 4px 10px; transition: color 0.2s; font-family: 'Segoe UI', system-ui, sans-serif; white-space: nowrap; }
+  .nav-bar a:hover { color: #fff; }
+  .nav-bar a.active { color: var(--camunda-orange); font-weight: 700; }
+  .nav-bar .sep { color: #444; font-size: 10px; padding: 0 2px; }
+  /* Shift logo below nav */
+  .logo-overlay { top: 38px !important; }
+  /* Shift slide content below nav */
+  .reveal .slides section { padding-top: 1.2em !important; }
+</style>
+</head>
+<body>
+
+<!-- Persistent navigation bar -->
+<div class="nav-bar" id="nav-bar">
+  <a href="#/toc" data-nav="toc">Agenda</a>
+  <span class="sep">|</span>
+  <a href="#/part1" data-nav="part1">I</a>
+  <a href="#/part2" data-nav="part2">II</a>
+  <a href="#/part3" data-nav="part3">III</a>
+  <a href="#/part4" data-nav="part4">IV</a>
+  <a href="#/part5" data-nav="part5">V</a>
+  <span class="sep">|</span>
+  <a href="#/bonus" data-nav="bonus">Bonus</a>
+  <span class="sep">|</span>
+  <a href="#/appendix-a" data-nav="appendix-a">A</a>
+  <a href="#/appendix-b" data-nav="appendix-b">B</a>
+  <a href="#/appendix-c" data-nav="appendix-c">C</a>
+  <a href="#/appendix-d" data-nav="appendix-d">D</a>
+</div>
+
+<img src="camunda-logo-black.svg" alt="Camunda" class="logo-overlay" id="persistent-logo">
+<button class="fullscreen-btn" id="fs-btn" title="Toggle fullscreen (F)">&#x26F6; Fullscreen</button>
+
+<div class="reveal">
+<div class="slides">
+
+<!-- ==================== TITLE ==================== -->
+<section data-background-color="#1a1a2e">
+  <h1 style="color:#fff; font-size:2.5em;">Camunda 8<br><span class="accent">DMN Deep Dive</span></h1>
+  <p style="color:#aaa; font-size:1em;">Rules Standardization &bull; Orchestration &bull; Testing &bull; Deployment</p>
+</section>
+
+<!-- ==================== TOC ==================== -->
+<section id="toc">
+  <h2>Agenda</h2>
+  <table style="font-size:0.55em; width:auto; margin:0 auto;">
+    <tbody>
+      <tr><td><a href="#/part1" style="color:var(--camunda-orange); text-decoration:none;"><strong>Part I</strong></a></td><td>DMN Rules Standardization</td></tr>
+      <tr><td><a href="#/part2" style="color:var(--camunda-orange); text-decoration:none;"><strong>Part II</strong></a></td><td>BPMN + DMN Orchestration Pattern</td></tr>
+      <tr><td><a href="#/part3" style="color:var(--camunda-orange); text-decoration:none;"><strong>Part III</strong></a></td><td>Testing &amp; Validation Framework</td></tr>
+      <tr><td><a href="#/part4" style="color:var(--camunda-orange); text-decoration:none;"><strong>Part IV</strong></a></td><td>Deployment &amp; Environment Strategy</td></tr>
+      <tr><td><a href="#/part5" style="color:var(--camunda-orange); text-decoration:none;"><strong>Part V</strong></a></td><td>Architecture for PHI + SaaS</td></tr>
+      <tr><td><a href="#/bonus" style="color:var(--camunda-orange); text-decoration:none;"><strong>Bonus</strong></a></td><td>c8ctl ("cocktail") CLI</td></tr>
+      <tr><td colspan="2" style="border-top:1px solid #ddd; padding-top:0.4em;"></td></tr>
+      <tr><td><a href="#/appendix-a" style="color:#888; text-decoration:none;">Appendix A</a></td><td style="color:#888;">RBAC for DMN Rules</td></tr>
+      <tr><td><a href="#/appendix-b" style="color:#888; text-decoration:none;">Appendix B</a></td><td style="color:#888;">DMN as a Service</td></tr>
+      <tr><td><a href="#/appendix-c" style="color:#888; text-decoration:none;">Appendix C</a></td><td style="color:#888;">DMN Best Practices</td></tr>
+      <tr><td><a href="#/appendix-d" style="color:#888; text-decoration:none;">Appendix D</a></td><td style="color:#888;">How DMN Executes in Camunda 8</td></tr>
+      <tr><td><a href="#/appendix-e" style="color:#888; text-decoration:none;">Appendix E</a></td><td style="color:#888;">BPMN vs DMN Versioning</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ==================== SECTION 1: DMN Rules Standardization ==================== -->
+<section id="part1" class="section-title" data-background-color="#1a1a2e">
+  <h1 style="color:var(--camunda-orange);">Part I</h1>
+  <h2 style="color:#fff; border-bottom:none;">DMN Rules Standardization</h2>
+</section>
+
+<section>
+  <h2>The Problem</h2>
+  <h3>Business logic buried in code</h3>
+  <pre><code class="java" data-trim data-noescape>
+if (interestRate >= 5.0) {
+    profitability = "high";
+} else if (interestRate >= 2.0) {
+    if (requestedLoan < 10000) {
+        profitability = "low";
+    } else if (requestedLoan <= 1000000) {
+        profitability = "medium";
+    } else {
+        profitability = "high";
+    }
+} else {
+    profitability = "low";
+}
+// ... more nested ifs for risk, then approval ...
+  </code></pre>
+  <p><span class="tag">Hard to read</span> <span class="tag">Harder to change</span> <span class="tag">Business can't review</span></p>
+</section>
+
+<section>
+  <h2>Complex Logic → Decision Tables</h2>
+  <h3>Profitability</h3>
+  <table style="font-size:0.55em;">
+    <thead><tr><th>Interest Rate</th><th>Requested Loan</th><th>Result</th></tr></thead>
+    <tbody>
+      <tr><td>&lt; 2.0</td><td class="dim">(any)</td><td><strong>low</strong></td></tr>
+      <tr><td>&ge; 5.0</td><td class="dim">(any)</td><td><strong>high</strong></td></tr>
+      <tr><td>[2 .. 5]</td><td>&lt; 10,000</td><td><strong>low</strong></td></tr>
+      <tr><td>[2 .. 5]</td><td>[10K .. 1M]</td><td><strong>medium</strong></td></tr>
+      <tr><td>[2 .. 5]</td><td>&gt; 1,000,000</td><td><strong>high</strong></td></tr>
+    </tbody>
+  </table>
+  <p style="font-size:0.7em;">Each row = one rule. No nesting. No control flow.<br>Business analysts can read <em>and validate</em> this directly.</p>
+</section>
+
+<section>
+  <h2>Readable &amp; Maintainable</h2>
+  <h3>Risk Assessment</h3>
+  <table>
+    <thead><tr><th>Requested Loan</th><th>Monthly Income</th><th>Risk</th></tr></thead>
+    <tbody>
+      <tr><td>&lt; 10,000</td><td class="dim">(any)</td><td><strong>low</strong></td></tr>
+      <tr><td>[10K .. 100K]</td><td>&lt; 5,000</td><td><strong>medium</strong></td></tr>
+      <tr><td>[10K .. 100K]</td><td>&ge; 5,000</td><td><strong>low</strong></td></tr>
+      <tr><td>&gt; 100,000</td><td>&lt; 5,000</td><td><strong>high</strong></td></tr>
+      <tr><td>&gt; 100,000</td><td>[5K .. 10K]</td><td><strong>medium</strong></td></tr>
+      <tr><td>&gt; 100,000</td><td>&ge; 10,000</td><td><strong>low</strong></td></tr>
+    </tbody>
+  </table>
+  <p style="font-size:0.8em;">Adding a new rule = <span class="accent">adding a row</span>. No code changes. No redeployment.</p>
+</section>
+
+<section>
+  <h2>Chaining Decisions</h2>
+  <div style="display:flex; align-items:center; gap:1.5em; margin-top:0.3em;">
+    <div style="flex:1.3;">
+      <img src="drd-diagram.svg" alt="DRD Diagram" style="width:100%;">
+    </div>
+    <div style="flex:0.7; text-align:left; font-size:0.65em; line-height:1.5;">
+      <p><strong>3 inputs</strong> feed into the decision graph</p>
+      <hr style="border:none; border-top:1px solid #ddd; margin:0.5em 0;">
+      <p><strong>2 intermediate decisions</strong> evaluate independently</p>
+      <hr style="border:none; border-top:1px solid #ddd; margin:0.5em 0;">
+      <p><span class="accent"><strong>1 final answer</strong></span> combines both results</p>
+      <hr style="border:none; border-top:1px solid #ddd; margin:0.5em 0;">
+      <p style="color:#888;">Engine evaluates the full graph automatically. Each decision is independently testable.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Chaining in Action</h2>
+  <h3>Loan Approval combines Profitability + Risk</h3>
+  <table>
+    <thead><tr><th>Profitability</th><th>Risk</th><th>Approved?</th></tr></thead>
+    <tbody>
+      <tr><td>low</td><td>not low</td><td style="color:#c0392b;"><strong>NO</strong></td></tr>
+      <tr><td>low</td><td>low</td><td style="color:#27ae60;"><strong>YES</strong></td></tr>
+      <tr><td>medium</td><td>high</td><td style="color:#c0392b;"><strong>NO</strong></td></tr>
+      <tr><td>medium</td><td>not high</td><td style="color:#27ae60;"><strong>YES</strong></td></tr>
+      <tr><td>high</td><td class="dim">(any)</td><td style="color:#27ae60;"><strong>YES</strong></td></tr>
+    </tbody>
+  </table>
+  <p style="font-size:0.8em;">Each decision is independently testable.</p>
+</section>
+
+<section>
+  <h2>Before / After</h2>
+  <table class="comparison-table">
+    <thead><tr><th style="background:#c0392b;">Before (code)</th><th style="background:#27ae60;">After (DMN)</th></tr></thead>
+    <tbody>
+      <tr><td>Logic scattered across services</td><td>Centralized in decision tables</td></tr>
+      <tr><td>Developers own business rules</td><td>Business analysts can own rules</td></tr>
+      <tr><td>Changes require code + deploy</td><td>Update DMN, redeploy resource only</td></tr>
+      <tr><td>Testing = tracing code paths</td><td>Testing = input/output pairs</td></tr>
+      <tr><td>Hard to audit</td><td>Visual, standardized, auditable</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ==================== SECTION 2: Orchestration Pattern ==================== -->
+<section id="part2" class="section-title" data-background-color="#1a1a2e">
+  <h1 style="color:var(--camunda-orange);">Part II</h1>
+  <h2 style="color:#fff; border-bottom:none;">BPMN + DMN Orchestration Pattern</h2>
+</section>
+
+<section>
+  <h2>The Pattern</h2>
+  <h3>Decision → conditional API call → next decision</h3>
+  <img src="orchestration-pattern.svg" alt="Orchestration Pattern" style="width:90%; margin:0.3em auto; display:block;">
+  <p style="font-size:0.7em;">
+    DMN makes the <strong>first decision</strong> with available data &bull;
+    Process <strong>fetches more data</strong> only if needed &bull;
+    A <strong>second decision</strong> runs with enriched data
+  </p>
+</section>
+
+<section>
+  <h2>Our Loan Approval Process</h2>
+  <img src="loan-process-diagram.svg" alt="Loan Approval Process" style="width:95%; margin:0.2em auto; display:block;">
+  <p style="font-size:0.55em; margin-top:0.2em; color:#555;">
+    DMN decides first with local data &bull; API called only on approval path &bull; Reduces latency, cost, and external dependencies
+  </p>
+</section>
+
+<section>
+  <h2>Separation of Concerns</h2>
+  <div class="two-col">
+    <div style="border-top: 4px solid #3498db;">
+      <h3>BPMN owns</h3>
+      <p><strong>When</strong> to call a decision</p>
+      <p><strong>What happens</strong> after (routing, APIs, notifications)</p>
+      <p><strong>Error handling</strong> and retries</p>
+      <p><strong>Process state</strong> and audit trail</p>
+    </div>
+    <div style="border-top: 4px solid var(--camunda-orange);">
+      <h3>DMN owns</h3>
+      <p><strong>How</strong> the decision is made (rules)</p>
+      <p><strong>What inputs</strong> matter</p>
+      <p><strong>What outputs</strong> are produced</p>
+      <p><strong>Business logic</strong> analysts can review</p>
+    </div>
+  </div>
+</section>
+
+
+<section>
+  <h2>Extensibility</h2>
+  <h3>Each change is isolated</h3>
+  <table>
+    <thead><tr><th>Change</th><th>Where</th><th>How</th></tr></thead>
+    <tbody>
+      <tr><td>New business rule</td><td>DMN table</td><td>Add a row</td></tr>
+      <tr><td>New decision factor</td><td>DMN input column</td><td>Add a column</td></tr>
+      <tr><td>New API call</td><td>BPMN service task</td><td>Add a task</td></tr>
+      <tr><td>New routing path</td><td>BPMN gateway</td><td>Add a sequence flow</td></tr>
+      <tr><td>New sub-decision</td><td>DMN DRD</td><td>Add a decision node</td></tr>
+    </tbody>
+  </table>
+  <p style="font-size:0.8em;">DMN changes don't require BPMN changes and vice versa.</p>
+</section>
+
+<!-- ==================== SECTION 3: Testing & Validation ==================== -->
+<section id="part3" class="section-title" data-background-color="#1a1a2e">
+  <h1 style="color:var(--camunda-orange);">Part III</h1>
+  <h2 style="color:#fff; border-bottom:none;">Testing &amp; Validation Framework</h2>
+</section>
+
+<section>
+  <h2>Testing Stack</h2>
+  <h3><a href="https://docs.camunda.io/docs/apis-tools/testing/getting-started/" target="_blank" style="color:var(--camunda-orange);">Camunda Process Test (CPT)</a> — the new testing library replacing Zeebe Process Test</h3>
+  <table style="font-size:0.45em;">
+    <thead><tr><th>Layer</th><th>Tool</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td>Runtime</td><td>Camunda 8 (Testcontainers)</td><td>Real engine, no mocks</td></tr>
+      <tr><td>Test framework</td><td><code>@CamundaSpringProcessTest</code></td><td>Lifecycle, deploy, reset</td></tr>
+      <tr><td>Assertions</td><td><code>CamundaAssert</code></td><td>Process state checks</td></tr>
+      <tr><td>Result validation</td><td><code>.withResult()</code> + AssertJ</td><td>Variable verification</td></tr>
+      <tr><td>Coverage</td><td>Built-in report</td><td>BPMN element coverage</td></tr>
+    </tbody>
+  </table>
+  <pre style="font-size:0.4em;"><code class="xml" data-trim data-noescape>
+&lt;dependency&gt;
+  &lt;groupId&gt;io.camunda&lt;/groupId&gt;
+  &lt;artifactId&gt;camunda-process-test-spring-4&lt;/artifactId&gt;  &lt;!-- Boot 3: camunda-process-test-spring --&gt;
+  &lt;version&gt;8.8.21&lt;/version&gt;
+  &lt;scope&gt;test&lt;/scope&gt;
+&lt;/dependency&gt;
+  </code></pre>
+  <p style="font-size:0.5em;">No mocks. No stubs. A <span class="accent">real Camunda engine</span> in Docker via Testcontainers.</p>
+</section>
+
+<section>
+  <h2>End-to-End Process Test</h2>
+  <h3>Real DMN evaluation + mocked Job worker</h3>
+  <pre style="font-size:0.45em;"><code class="java" data-trim data-noescape>
+@SpringBootTest
+@CamundaSpringProcessTest
+class LoanApprovalProcessTest {
+    @Autowired private CamundaClient client;
+    @Autowired private CamundaProcessTestContext processTestContext;
+
+    @BeforeEach
+    void setUp() {
+        // Mock the "Disburse Loan" job worker (instead of REST API)
+        processTestContext.mockJobWorker("io.camunda:http-json:1")
+                .thenComplete(Map.of("disbursement_id", "DISB-12345"));
+    }
+
+    @Test
+    void shouldApproveLoan_highProfitability() {
+        // DMN is real — evaluates loan_approval decision with these inputs
+        ProcessInstanceEvent instance = createLoanInstance(6.0, 50000, 3000);
+        assertThat(instance).isCompleted();           // process finished
+        assertThat(instance).hasVariable("loan_decision", true);  // DMN approved
+    }
+}
+  </code></pre>
+  <p style="font-size:0.55em;">
+    <span class="tag">DMN</span> real evaluation &bull;
+    <span class="tag">Job worker</span> mocked &bull;
+    <span class="tag">Gateway</span> routes based on DMN result
+  </p>
+</section>
+
+    <section>
+        <h2>Validating via Process</h2>
+        <h3>Run BPMN + DMN flow and check the result variable</h3>
+        <pre><code class="java" data-trim data-noescape>
+// Start process and wait for completion
+ProcessInstanceResult result = client
+    .newCreateInstanceCommand()
+    .bpmnProcessId("loan-approval")
+    .latestVersion()
+    .variables(Map.of(
+        "interest_rate", 6.0,
+        "requested_loan", 50000,
+        "monthly_income", 3000))
+    .withResult()    // blocks until process ends
+    .send().join();
+
+// Assert the DMN decision output stored in the process variable
+assertThat(result.getVariablesAsMap()
+    .get("loan_decision")).isEqualTo(true);
+  </code></pre>
+        <p style="font-size:0.55em;">End-to-end: BPMN deploys DMN → Business Rule Task evaluates → gateway routes → process completes.</p>
+    </section>
+
+<section>
+  <h2>Testing Decisions Independently</h2>
+  <h3>No BPMN needed — evaluate each DMN decision directly</h3>
+  <div style="display:flex; gap:1em; font-size:0.48em;">
+    <div style="flex:1;">
+      <pre><code class="java" data-trim data-noescape>
+// Test Profitability decision in isolation
+@Test
+void midRate_mediumLoan_returnsMedium() {
+    EvaluateDecisionResponse response = client
+        .newEvaluateDecisionCommand()
+        .decisionId("probability")
+        .variables(Map.of(
+            "interest_rate", 3.0,
+            "requested_loan", 50000))
+        .send().join();
+
+    assertThat(response.getDecisionOutput())
+        .isEqualTo("\"medium\"");
+}
+      </code></pre>
+    </div>
+    <div style="flex:1;">
+      <pre><code class="java" data-trim data-noescape>
+// Test Risk decision in isolation
+@Test
+void largeLoan_lowIncome_returnsHigh() {
+    EvaluateDecisionResponse response = client
+        .newEvaluateDecisionCommand()
+        .decisionId("risk")
+        .variables(Map.of(
+            "requested_loan", 200000,
+            "monthly_income", 3000))
+        .send().join();
+
+    assertThat(response.getDecisionOutput())
+        .isEqualTo("\"high\"");
+}
+      </code></pre>
+    </div>
+  </div>
+  <pre style="margin-top:0.3em;"><code class="bash" data-trim>./mvnw test -Dtest=DmnDecisionTest    # 17 tests: 5 profitability + 6 risk + 6 approval</code></pre>
+</section>
+
+
+
+
+
+
+
+
+<section>
+  <h2>Mocking REST Outbound Connectors</h2>
+  <p style="font-size:0.65em;">When your BPMN uses a <strong>REST outbound connector</strong>, the connector runtime runs inside Docker. Use <strong>WireMock</strong> as the target endpoint.</p>
+  <div class="flow-diagram">
+<pre style="font-size:0.8em; margin:0; background:none; box-shadow:none; text-align:left; line-height:1.2;">
+┌─────────────────┐          ┌──────────────────────────┐
+│  Test (JVM)     │          │  Docker (Testcontainers)  │
+│                 │          │                           │
+│  WireMock       │◀── HTTP ──── Connector Runtime      │
+│  :9999          │          │     (connectors-bundle)   │
+│                 │          │            ▲              │
+│  Start process  │── gRPC ──│──▶  Zeebe Engine          │
+│  Assert result  │          │     creates job for       │
+│                 │          │     io.camunda:http-json:1 │
+└─────────────────┘          └──────────────────────────┘</pre>
+  </div>
+  <ol style="font-size:0.45em; text-align:left; max-width:80%; margin:0.2em auto; line-height:1.4;">
+    <li>Test starts process instance</li>
+    <li>Zeebe creates a connector job (<code>io.camunda:http-json:1</code>)</li>
+    <li>Connector runtime picks up job, reads URL from <code>{{secrets.DISBURSEMENT_API_URL}}</code></li>
+    <li>Connector makes HTTP call → hits WireMock on the host</li>
+    <li>WireMock returns stubbed response → connector completes the job</li>
+  </ol>
+</section>
+
+<section>
+  <h2>Step 1: Enable Connector Runtime</h2>
+<pre><code class="language-java">@WireMockTest(httpPort = 9999)
+@SpringBootTest(properties = {
+    "camunda.process-test.connectors-enabled=true",
+    "camunda.process-test.connectors-docker-image-version=8.8.10",
+    "camunda.process-test.connectors-secrets.DISBURSEMENT_API_URL="
+        + "http://host.testcontainers.internal:9999/api/disburse"
+})
+@CamundaSpringProcessTest
+class LoanApprovalProcessTest {</code></pre>
+  <table style="font-size:0.5em;">
+    <thead><tr><th>Property</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>connectors-enabled=true</code></td><td>Starts <code>camunda/connectors-bundle</code> container</td></tr>
+      <tr><td><code>connectors-docker-image-version</code></td><td>Pin connector image tag (SDK version ≠ image tag)</td></tr>
+      <tr><td><code>connectors-secrets.*</code></td><td>Connector secrets resolved inside the container</td></tr>
+      <tr><td><code>host.testcontainers.internal</code></td><td>Hostname to reach the host from inside Docker</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>Step 2: Expose Host Port &amp; Stub the API</h2>
+<pre><code class="language-java">@BeforeAll
+static void exposePort() {
+    // Make WireMock port accessible from the connector container
+    Testcontainers.exposeHostPorts(9999);
+}
+
+@BeforeEach
+void setUp() {
+    // Stub the disbursement API — connector will call this
+    stubFor(get(urlPathEqualTo("/api/disburse"))
+        .willReturn(okJson(
+            "{\"disbursement_id\": \"DISB-12345\"}")));
+}</code></pre>
+  <p style="font-size:0.6em;">The connector runtime resolves <code>{{secrets.DISBURSEMENT_API_URL}}</code><br>→ <code>http://host.testcontainers.internal:9999/api/disburse</code> → hits WireMock.</p>
+</section>
+
+<section>
+  <h2>Step 3: Run the Process &amp; Assert</h2>
+<pre><code class="language-java">@Test
+void shouldApproveLoan_highProfitability() {
+    ProcessInstanceEvent instance = client
+        .newCreateInstanceCommand()
+        .bpmnProcessId("loan-approval")
+        .latestVersion()
+        .variables(Map.of(
+            "interest_rate", 6.0,
+            "requested_loan", 50000,
+            "monthly_income", 3000))
+        .send().join();
+
+    assertThat(instance).isCompleted();
+    assertThat(instance).hasVariable("loan_decision", true);
+}</code></pre>
+  <p style="font-size:0.65em;"><strong>real connector</strong> makes the HTTP call to WireMock.</p>
+</section>
+
+
+    <section>
+        <h2>Job Worker Approach</h2>
+        <h3>Alternative: custom service task instead of REST Connector</h3>
+        <pre style="font-size:0.48em;"><code class="java" data-trim data-noescape>
+// In production: a @JobWorker handles the service task
+@JobWorker(type = "fetch-credit-score")
+public void fetchCreditScore(JobClient client, ActivatedJob job) {
+    int score = creditApi.getScore(job.getVariable("applicant_id"));
+    client.newCompleteCommand(job).variable("credit_score", score).send();
+}
+
+// In tests: mock it — same API, different job type
+processTestContext.mockJobWorker("fetch-credit-score")
+    .thenComplete(Map.of("credit_score", 720));
+
+// Or with custom logic
+processTestContext.mockJobWorker("fetch-credit-score")
+    .withHandler((jobClient, job) -> {
+        int loan = (int) job.getVariablesAsMap().get("requested_loan");
+        int score = loan > 100000 ? 580 : 750;  // simulate varying responses
+        jobClient.newCompleteCommand(job)
+            .variable("credit_score", score).send().join();
+    });
+
+// Or simulate API failure
+processTestContext.mockJobWorker("fetch-credit-score")
+    .thenThrowBpmnError("API_UNAVAILABLE");
+  </code></pre>
+        <p style="font-size:0.55em;">
+            <span class="tag">REST Connector</span> no code, config in BPMN &bull;
+            <span class="tag">Job Worker</span> custom code, full control &bull;
+            Both mockable with <code>mockJobWorker()</code>
+        </p>
+    </section>
+
+
+<section>
+    <h2>Process Coverage Report</h2>
+    <pre style="font-size:0.55em; text-align:center;"><code data-trim>
+Process coverage: LoanApprovalProcessTest
+========================
+- loan-approval: 100%
+
+Coverage report: target/coverage-report/report.html
+</code></pre>
+    <table>
+        <thead><tr><th>Feature</th><th>Detail</th></tr></thead>
+        <tbody>
+        <tr><td>Generated</td><td>Automatically after test run</td></tr>
+        <tr><td>Format</td><td>HTML report in <code>target/coverage-report/</code></td></tr>
+        <tr><td>Shows</td><td>Which BPMN elements were exercised</td></tr>
+        <tr><td>Identifies</td><td>Untested paths and dead branches</td></tr>
+        </tbody>
+    </table>
+</section>
+
+<section>
+  <h2>Watch Out For</h2>
+  <table style="font-size:0.55em;">
+    <thead><tr><th>Gotcha</th><th>Details</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Docker required</strong></td><td>Testcontainers needs Docker running locally</td></tr>
+      <tr><td><strong>First run slow</strong></td><td>Container image pull (~30s), then cached</td></tr>
+      <tr><td><strong>Boundary values</strong></td><td>Overlapping ranges cause UNIQUE hit policy violations<br>(e.g. <code>[2..5]</code> and <code>&ge;5.0</code> both match at 5.0)</td></tr>
+      <tr><td><strong>DRD variable names</strong></td><td>Sub-decision results accessible by <strong>decision id</strong>,<br>not output column name</td></tr>
+      <tr><td><strong>Async assertions</strong></td><td><code>CamundaAssert</code> auto-waits up to 10s</td></tr>
+      <tr><td><strong>State isolation</strong></td><td><code>@CamundaSpringProcessTest</code> resets engine between tests</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ==================== SECTION 4: Deployment & Environment ==================== -->
+<section id="part4" class="section-title" data-background-color="#1a1a2e">
+  <h1 style="color:var(--camunda-orange);">Part IV</h1>
+  <h2 style="color:#fff; border-bottom:none;">Deployment &amp; Environment Strategy</h2>
+</section>
+
+<section>
+  <h2>Dev / QA / Prod Flow</h2>
+  <div class="flow-diagram" style="font-size:0.9em;">
+<pre style="background:none; box-shadow:none; margin:0;">
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│     DEV     │ ──→ │     QA      │ ──→ │    PROD     │
+│             │     │             │     │             │
+│ Edit DMN    │     │ Run tests   │     │ Deploy      │
+│ Edit BPMN   │     │ Review      │     │ Monitor     │
+│ Unit test   │     │ Approve     │     │ Audit       │
+└─────────────┘     └─────────────┘     └─────────────┘
+</pre>
+  </div>
+  <p style="font-size:0.75em;">
+    <strong>DEV</strong>: Camunda Modeler + Testcontainers locally<br>
+    <strong>QA</strong>: Automated test suite + business analyst review<br>
+    <strong>PROD</strong>: Deploy via API or CI/CD, monitor with Operate
+  </p>
+</section>
+
+<section>
+  <h2>Deployment via API</h2>
+  <h3>REST API</h3>
+  <pre><code class="bash" data-trim data-noescape>
+curl -X POST https://camunda.example.com/v2/deployments \
+  -H "Authorization: Bearer $TOKEN" \
+  -F "resources=@loan-approval.bpmn" \
+  -F "resources=@loan-approval.dmn"
+  </code></pre>
+  <h3>Java Client</h3>
+  <pre><code class="java" data-trim data-noescape>
+client.newDeployResourceCommand()
+    .addResourceFromClasspath("bpmn/loan-approval.bpmn")
+    .addResourceFromClasspath("dmn/loan-approval.dmn")
+    .send().join();
+  </code></pre>
+</section>
+
+
+<section>
+  <h2>Deployment via Modeler</h2>
+  <div class="two-col" style="font-size:0.65em;">
+    <div style="border-top: 4px solid #3498db; padding:0.8em;">
+      <h3 style="margin:0 0 0.3em;">Desktop Modeler</h3>
+      <p style="margin:0;">Open file → click <strong>Deploy</strong> → select cluster → done<br><span style="color:#999;">No code, no build, no CI/CD</span></p>
+    </div>
+    <div style="border-top: 4px solid var(--camunda-orange); padding:0.8em;">
+      <h3 style="margin:0 0 0.3em;">Web Modeler (SaaS)</h3>
+      <p style="margin:0;">Edit DMN in browser → deploy with one click<br><span style="color:#999;">Business analysts can modify rules. Built-in version history.</span></p>
+    </div>
+  </div>
+  <p style="font-size:0.65em; margin-top:0.4em;">Best for <span class="accent">quick rule changes</span> by business analysts without developer involvement.</p>
+</section>
+
+<section>
+  <h2>CI/CD Integration</h2>
+  <div class="flow-diagram" style="font-size:0.85em;">
+<pre style="background:none; box-shadow:none; margin:0;">
+[Commit] ──→ [Build] ──→ [Test] ──→ [Deploy]
+ .bpmn        mvn          6 tests    REST API
+ .dmn         compile      pass?      or CLI
+ .java                       │
+                         FAIL ▼
+                        Block deploy
+</pre>
+  </div>
+  <pre><code class="yaml" data-trim data-noescape>
+# GitHub Actions example
+- name: Test DMN decisions
+  run: ./mvnw test -Dtest=LoanApprovalProcessTest
+
+- name: Deploy to Camunda
+  if: success()
+  run: |
+    curl -X POST $CAMUNDA_URL/v2/deployments \
+      -H "Authorization: Bearer $TOKEN" \
+      -F "resources=@src/main/resources/bpmn/loan-approval.bpmn" \
+      -F "resources=@src/main/resources/dmn/loan-approval.dmn"
+  </code></pre>
+</section>
+
+<section>
+  <h2>Versioning of Decisions</h2>
+  <table style="font-size:0.55em;">
+    <thead><tr><th>Scenario</th><th>What happens</th><th>Example</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>New instance</strong></td>
+        <td>Uses latest version by default</td>
+        <td><code>.latestVersion()</code></td>
+      </tr>
+      <tr>
+        <td><strong>Pinned instance</strong></td>
+        <td>Always uses specified version</td>
+        <td><code>.version(2)</code></td>
+      </tr>
+      <tr>
+        <td><strong>Running instance</strong></td>
+        <td>Stays on the version it started with</td>
+        <td>Instance on v1 keeps using v1 DMN rules</td>
+      </tr>
+      <tr>
+        <td><strong>Migrate running</strong></td>
+        <td>Move to new BPMN version via migration API</td>
+        <td><code>POST /process-instances/{key}/migration</code></td>
+      </tr>
+      <tr>
+        <td><strong>Rollback</strong></td>
+        <td>Re-deploy old version → becomes new "latest"</td>
+        <td>Deploy v1 again → new instances use v1</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>Updating Running Instances</h2>
+  <h3>Can a running process use new DMN rules?</h3>
+  <table style="font-size:0.55em;">
+    <thead><tr><th>Method</th><th>How</th><th>DMN version</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Do nothing</strong></td>
+        <td>Instance continues on its BPMN version</td>
+        <td>Uses DMN version linked at deploy time</td>
+      </tr>
+      <tr>
+        <td><strong>Migrate BPMN</strong></td>
+        <td>Call migration API with mapping instructions</td>
+        <td>Business rule task re-links to new BPMN's DMN ref</td>
+      </tr>
+    </tbody>
+  </table>
+  <h3 style="margin-top:0.3em;">Migration API example</h3>
+  <pre><code class="bash" data-trim data-noescape>
+# Migrate running instance to BPMN v2 (which calls DMN v2)
+curl -X POST https://&lt;cluster&gt;/v2/process-instances/2251799813685300/migration \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "targetProcessDefinitionKey": "2251799813685400",
+    "mappingInstructions": [{
+      "sourceElementId": "Task_EvaluateLoan",
+      "targetElementId": "Task_EvaluateLoan"
+    }]
+  }'
+  </code></pre>
+  <p style="font-size:0.55em; color:#888;">Note: migration does not re-evaluate already completed elements. Only future task executions use the new DMN version.</p>
+  <p style="font-size:0.6em; margin-top:0.2em;">
+    <strong>Or use Operate UI</strong>: Select instances → click <strong>Migrate</strong> → pick target version → map flow nodes → confirm.<br>
+    <a href="https://docs.camunda.io/docs/components/operate/userguide/process-instance-migration/" target="_blank" style="color:var(--camunda-orange);">Operate Migration Guide</a>
+  </p>
+</section>
+
+<!-- ==================== SECTION 5: PHI + SaaS Architecture ==================== -->
+<section id="part5" class="section-title" data-background-color="#1a1a2e">
+  <h1 style="color:var(--camunda-orange);">Part V</h1>
+  <h2 style="color:#fff; border-bottom:none;">Architecture for PHI + SaaS</h2>
+</section>
+
+<section>
+  <h2>The Challenge</h2>
+  <h3>PHI/PII in process orchestration</h3>
+  <table style="font-size:0.55em;">
+    <thead><tr><th>Concern</th><th>Problem</th></tr></thead>
+    <tbody>
+      <tr><td><strong>HIPAA / GDPR</strong></td><td>PHI/PII must not be stored in SaaS platforms you don't control</td></tr>
+      <tr><td><strong>Process variables</strong></td><td>Camunda stores variables — if you pass SSN, DOB, name, they persist in the cluster</td></tr>
+      <tr><td><strong>Audit logs</strong></td><td>Operate, Tasklist, and exports may expose sensitive data</td></tr>
+      <tr><td><strong>DMN inputs</strong></td><td>Decision tables receive and log input values</td></tr>
+    </tbody>
+  </table>
+  <p style="font-size:0.6em; margin-top:0.4em;">
+    <strong>Rule:</strong> Camunda should orchestrate decisions, not store sensitive data.<br>
+    Pass <span class="accent">references and tokens</span>, never raw PHI/PII.
+  </p>
+</section>
+
+<section>
+  <h2>Minimal Data in Camunda</h2>
+  <h3>What goes into the process — and what stays out</h3>
+  <table style="font-size:0.5em;">
+    <thead><tr><th>Pass to Camunda</th><th>Keep in your system</th></tr></thead>
+    <tbody>
+      <tr><td><code>application_id: "APP-78291"</code></td><td>Full name, SSN, DOB, address</td></tr>
+      <tr><td><code>risk_level: "medium"</code></td><td>Credit report details</td></tr>
+      <tr><td><code>loan_amount: 50000</code></td><td>Bank account numbers</td></tr>
+      <tr><td><code>approved: true</code></td><td>Medical records, diagnoses</td></tr>
+      <tr><td><code>credit_score_ref: "CS-TOKEN-abc"</code></td><td>Actual credit score with PII context</td></tr>
+    </tbody>
+  </table>
+  <p style="font-size:0.55em; margin-top:0.3em;">
+    DMN evaluates <code>risk_level</code>, <code>loan_amount</code> — no PHI needed for the decision.<br>
+    Service tasks use <code>application_id</code> to fetch sensitive data from <strong>your</strong> secure store.
+  </p>
+</section>
+
+<section>
+  <h2>Tokenization Pattern</h2>
+  <h3>Reference-based architecture for PHI compliance</h3>
+  <div class="flow-diagram" style="font-size:0.75em; margin:0.2em auto;">
+<pre style="background:none; box-shadow:none; margin:0;">
+┌──────────────┐    token     ┌──────────────────┐
+│  Your App    │ ───────────→ │  Camunda Cluster  │
+│              │  APP-78291   │                   │
+│  PHI stored  │              │  Only sees:       │
+│  here only   │ ←─────────── │  - application_id │
+│              │   decision   │  - risk_level     │
+└──────┬───────┘              │  - approved       │
+       │                      └──────────────────┘
+       ▼
+┌──────────────┐
+│  Secure DB   │
+│  PHI / PII   │
+│  encrypted   │
+└──────────────┘
+</pre>
+  </div>
+  <p style="font-size:0.55em;">
+    Camunda never sees PHI. Your app resolves tokens to real data only when needed.
+  </p>
+</section>
+
+<section>
+  <h2>PII Detection with Phileas</h2>
+  <h3>Catch accidental PII before it reaches Camunda</h3>
+  <pre><code class="java" data-trim data-noescape>
+// Phileas — open-source PII/PHI detection & redaction library
+// github.com/philterd/phileas
+
+PhileasConfiguration config = new PhileasConfiguration();
+PlainTextFilterService filterService =
+    new PlainTextFilterService(config);
+
+// Scan text for 30+ PII types: SSN, names, DOB, emails, etc.
+FilterResponse response = filterService
+    .filter(policies, "ctx", inputText);
+
+// response.filteredText() has PII replaced with tokens
+// e.g. "John Doe, SSN 123-45-6789" → "{{{REDACTED-NAME}}}, SSN {{{REDACTED-SSN}}}"
+  </code></pre>
+  <p style="font-size:0.55em;">
+    <strong>Use as a guardrail:</strong> scan process variables before passing to Camunda.<br>
+    Detects: names, SSN, DOB, emails, phone, credit cards, IP addresses, medical conditions, and 20+ more.<br>
+    <a href="https://github.com/philterd/phileas" target="_blank" style="color:var(--camunda-orange);">github.com/philterd/phileas</a>
+  </p>
+</section>
+
+<section>
+  <h2>SaaS vs Self-Managed for PHI</h2>
+  <table style="font-size:0.5em;">
+    <thead><tr><th>Factor</th><th>SaaS</th><th>Self-Managed</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>PHI in variables</strong></td>
+        <td style="color:#c0392b;">Avoid — data stored on Camunda infrastructure</td>
+        <td style="color:#27ae60;">Your infrastructure — you control encryption at rest</td>
+      </tr>
+      <tr>
+        <td><strong>Tokenization</strong></td>
+        <td>Required — pass references only</td>
+        <td>Recommended — but you can store if encrypted</td>
+      </tr>
+      <tr>
+        <td><strong>Audit / Operate</strong></td>
+        <td style="color:#c0392b;">Variable values visible in Camunda-hosted Operate</td>
+        <td style="color:#27ae60;">Your Operate instance — control access &amp; retention</td>
+      </tr>
+      <tr>
+        <td><strong>Data residency</strong></td>
+        <td>Limited to Camunda's regions</td>
+        <td>Deploy anywhere — your cloud, your region</td>
+      </tr>
+      <tr>
+        <td><strong>BAA (HIPAA)</strong></td>
+        <td>Check with Camunda sales for BAA availability</td>
+        <td>Not needed — you own the infrastructure</td>
+      </tr>
+      <tr>
+        <td><strong>Best approach</strong></td>
+        <td><span class="tag">Tokenize everything</span></td>
+        <td><span class="tag">Tokenize + encrypt at rest</span></td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ==================== BONUS: c8ctl ==================== -->
+<section id="bonus" class="section-title" data-background-color="#1a1a2e">
+  <h1 style="color:var(--camunda-orange);">Bonus</h1>
+  <h2 style="color:#fff; border-bottom:none;">c8ctl (&#x1F378; "cocktail")</h2>
+  <p style="color:#aaa; font-size:0.8em;">Camunda 8 CLI — your entire dev lifecycle in the terminal</p>
+</section>
+
+<section>
+  <h2>c8ctl — What Is It?</h2>
+  <h3>A minimal-dependency CLI for Camunda 8.8+ that exposes the full REST API</h3>
+  <pre><code class="bash" data-trim>npm install @camunda8/cli -g</code></pre>
+  <table style="font-size:0.5em; margin-top:0.4em;">
+    <thead><tr><th>Capability</th><th>Commands</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Inspect</strong></td><td><code>c8 list pd</code> &bull; <code>c8 list pi</code></td></tr>
+      <tr><td><strong>Search</strong></td><td><code>c8 search pd --iname="loan*"</code></td></tr>
+      <tr><td><strong>Deploy</strong></td><td><code>c8 deploy "./src/main/resources"</code></td></tr>
+      <tr><td><strong>Run</strong></td><td><code>c8 await pi --id=loan-approval --variables'{...}'</code></td></tr>
+      <tr><td><strong>Manage</strong></td><td><code>c8 cancel pi [key]</code> &bull; <code>c8 resolve inc [key]</code></td></tr>
+      <tr><td><strong>Profiles</strong></td><td><code>c8 use profile prod</code></td></tr>
+    </tbody>
+  </table>
+  <p style="font-size:0.55em;">
+    Blog: <a href="https://camunda.com/blog/2026/03/meet-c8ctl/" target="_blank" style="color:var(--camunda-orange);">Meet c8ctl</a>
+  </p>
+</section>
+
+<section>
+  <h2>c8ctl for DMN Workflows</h2>
+  <pre style="font-size:0.48em;"><code class="bash" data-trim data-noescape>
+# Deploy DMN + BPMN in one shot
+c8 deploy "./src/main/resources"
+
+# Watch mode — auto-redeploys on file save
+c8 watch ./src/main/resources
+
+# Run a process and wait for completion
+c8 await pi --id=loan-approval \
+  --variables='{"interest_rate":6.0,"requested_loan":50000,"monthly_income":3000}'
+
+# Search for decision variables and incidents
+c8 search variables --name=loan_decision
+c8 search inc --ierrorMessage='*DECISION*'
+  </code></pre>
+  <p style="font-size:0.55em;">
+    <span class="tag">Watch</span> edit DMN → auto-deploy → instant feedback &bull;
+    <span class="tag">Await</span> run + wait → see final variables &bull;
+    <span class="tag">Profiles</span> dev / qa / prod in one CLI
+  </p>
+</section>
+
+<section>
+  <h2>c8ctl + AI (MCP Proxy)</h2>
+  <h3>Bridge AI tools directly to your Camunda cluster</h3>
+  <pre><code class="bash" data-trim data-noescape>
+# Start the MCP proxy — connects Claude / Copilot to your cluster
+c8 mcp-proxy --profile=dev
+  </code></pre>
+  <div class="two-col" style="font-size:0.6em; margin-top:0.3em;">
+    <div style="border-top: 4px solid var(--camunda-orange); padding:0.7em;">
+      <h3 style="margin:0 0 0.3em;">What AI can do</h3>
+      <p style="margin:0.2em 0;">List running process instances</p>
+      <p style="margin:0.2em 0;">Inspect incidents and errors</p>
+      <p style="margin:0.2em 0;">Search jobs and variables</p>
+      <p style="margin:0.2em 0;">Query cluster topology</p>
+    </div>
+    <div style="border-top: 4px solid #3498db; padding:0.7em;">
+      <h3 style="margin:0 0 0.3em;">Safety built in</h3>
+      <p style="margin:0.2em 0;"><code>--dry-run</code> shows API request without executing</p>
+      <p style="margin:0.2em 0;"><code>c8 output json</code> for machine-readable output</p>
+      <p style="margin:0.2em 0;"><code>--fields</code> limits output for LLM context</p>
+      <p style="margin:0.2em 0;">Extensible via npm plugins</p>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== SUMMARY ==================== -->
+<section class="section-title" data-background-color="#1a1a2e">
+  <h1 style="color:var(--camunda-orange);">Summary</h1>
+  <h2 style="color:#fff; border-bottom:none;">Key Takeaways</h2>
+</section>
+
+<section>
+  <h2>Key Takeaways</h2>
+  <table>
+    <thead><tr><th>Section</th><th>Takeaway</th></tr></thead>
+    <tbody>
+      <tr><td><strong>1. DMN Rules</strong></td><td>Replace nested code with readable decision tables</td></tr>
+      <tr><td><strong>2. Orchestration</strong></td><td>BPMN for flow, DMN for logic — fetch data only when needed</td></tr>
+      <tr><td><strong>3. Testing</strong></td><td>Real engine via Testcontainers, input/output test pattern</td></tr>
+      <tr><td><strong>4. Deployment</strong></td><td>API or Modeler deploy, auto-versioning, CI/CD ready</td></tr>
+      <tr><td><strong>5. PHI + SaaS</strong></td><td>Tokenize — pass references, never raw PHI/PII to Camunda</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section data-background-color="#1a1a2e">
+  <h2 style="color:#fff;">Live Demo</h2>
+  <div style="text-align:left; color:#ccc; font-size:0.8em; max-width:600px; margin:0 auto;">
+    <p>1. Walk through the DMN in Camunda Modeler</p>
+    <p>2. Run the 6 test scenarios</p>
+    <p>3. Review the process coverage report</p>
+    <p>4. Change a DMN rule → see a test flip</p>
+  </div>
+  <pre style="margin-top:1em;"><code class="bash" data-trim>./mvnw test -Dtest=LoanApprovalProcessTest</code></pre>
+</section>
+
+<!-- ==================== APPENDIX 1: RBAC ==================== -->
+<section id="appendix-a" class="section-title" data-background-color="#1a1a2e">
+  <h1 style="color:var(--camunda-orange);">Appendix A</h1>
+  <h2 style="color:#fff; border-bottom:none;">RBAC for DMN Rules</h2>
+  <p style="color:#aaa; font-size:0.8em;">Self-Managed vs SaaS</p>
+</section>
+
+<section>
+  <h2>DMN Access Control</h2>
+  <table style="font-size:0.52em;">
+    <thead><tr><th>Action</th><th>SaaS (fixed roles)</th><th>Self-Managed (per-decision)</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>View</strong></td>
+        <td>Modeler, Analyst, Admin, Owner</td>
+        <td>Users/groups with <code>READ</code></td>
+      </tr>
+      <tr>
+        <td><strong>Edit</strong></td>
+        <td>Modeler, Analyst, Admin, Owner</td>
+        <td>Users/groups with <code>UPDATE</code></td>
+      </tr>
+      <tr>
+        <td><strong>Deploy</strong></td>
+        <td>Admin &amp; Owner only — <em>Modeler cannot</em></td>
+        <td>Users/groups with deploy permission</td>
+      </tr>
+      <tr>
+        <td><strong>Delete</strong></td>
+        <td>Admin &amp; Owner only</td>
+        <td>Users/groups with <code>DELETE</code></td>
+      </tr>
+    </tbody>
+  </table>
+  <p style="font-size:0.6em; margin-top:0.6em; line-height:1.6;">
+    <span class="tag">SaaS</span> 4 built-in roles (Owner, Admin, Modeler, Analyst) — permissions are per-role, not per-decision<br>
+    <span class="tag">Self-Managed</span> Custom roles via Identity (Keycloak / OIDC) — assign <code>READ</code> / <code>UPDATE</code> / <code>DELETE</code> per decision ID
+  </p>
+</section>
+
+<!-- ==================== APPENDIX B: DMN as a Service ==================== -->
+<section id="appendix-b" class="section-title" data-background-color="#1a1a2e">
+  <h1 style="color:var(--camunda-orange);">Appendix B</h1>
+  <h2 style="color:#fff; border-bottom:none;">DMN as a Service</h2>
+  <p style="color:#aaa; font-size:0.8em;">Orchestration Cluster API</p>
+</section>
+
+<section>
+  <h2>DMN as a Service</h2>
+  <h3>Any app can evaluate decisions via REST — no BPMN needed</h3>
+  <pre><code class="bash" data-trim data-noescape>
+# POST /v2/decision-definitions/evaluation
+
+curl -X POST https://&lt;cluster&gt;/v2/decision-definitions/evaluation \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "decisionId": "loan_approval",
+    "variables": {
+      "interest_rate": 6.0,
+      "requested_loan": 50000,
+      "monthly_income": 3000
+    }
+  }'
+
+# Response: { "result": true }
+  </code></pre>
+  <p style="font-size:0.6em;">
+    Docs: <a href="https://docs.camunda.io/docs/apis-tools/camunda-api-rest/specifications/evaluate-decision/" target="_blank" style="color:var(--camunda-orange);">Evaluate Decision API Reference</a>
+    &nbsp;|&nbsp;
+    <a href="https://docs.camunda.io/docs/apis-tools/camunda-api-rest/camunda-api-rest-overview/" target="_blank" style="color:var(--camunda-orange);">REST API Overview</a>
+  </p>
+</section>
+
+<section>
+  <h2>Spring Boot Client Setup</h2>
+  <div style="display:flex; gap:1em; font-size:0.48em;">
+    <div style="flex:1;">
+      <h3 style="font-size:1.3em;">Self-Managed (OIDC)</h3>
+      <pre><code class="yaml" data-trim data-noescape>
+camunda:
+  client:
+    mode: self-managed
+    grpc-address: https://zeebe.example.com:26500
+    rest-address: https://camunda.example.com
+    auth:
+      method: oidc
+      client-id: my-app
+      client-secret: ${CAMUNDA_SECRET}
+      token-url: https://keycloak.example.com/...
+      </code></pre>
+      <h3 style="font-size:1.3em;">SaaS</h3>
+      <pre><code class="yaml" data-trim data-noescape>
+camunda:
+  client:
+    mode: saas
+    grpc-address: https://cluster.zeebe.camunda.io
+    rest-address: https://cluster.camunda.io
+    auth:
+      client-id: ${CAMUNDA_CLIENT_ID}
+      client-secret: ${CAMUNDA_CLIENT_SECRET}
+      token-url: https://login.cloud.camunda.io/...
+      </code></pre>
+    </div>
+    <div style="flex:1;">
+      <h3 style="font-size:1.3em;">pom.xml — Camunda Spring Boot Starter</h3>
+      <pre><code class="xml" data-trim data-noescape>
+&lt;!-- Spring Boot 4 --&gt;
+&lt;dependency&gt;
+  &lt;groupId&gt;io.camunda&lt;/groupId&gt;
+  &lt;artifactId&gt;camunda-spring-boot-4-starter&lt;/artifactId&gt;
+  &lt;version&gt;8.8.21&lt;/version&gt;
+&lt;/dependency&gt;
+
+&lt;!-- Spring Boot 3 --&gt;
+&lt;!-- artifactId: camunda-spring-boot-starter --&gt;
+      </code></pre>
+      <h3 style="font-size:1.3em;">CamundaClient is auto-configured</h3>
+      <pre><code class="java" data-trim data-noescape>
+@Service
+public class LoanService {
+
+  @Autowired  // injected by starter
+  private CamundaClient client;
+
+  public boolean evaluate(double rate,
+                          int loan, int income) {
+    var resp = client
+        .newEvaluateDecisionCommand()
+        .decisionId("loan_approval")
+        .variables(Map.of(
+            "interest_rate", rate,
+            "requested_loan", loan,
+            "monthly_income", income))
+        .send().join();
+    return resp.getDecisionOutput()
+        .equals("true");
+  }
+}
+      </code></pre>
+    </div>
+  </div>
+</section>
+
+
+<!-- ==================== APPENDIX C: DMN Best Practices ==================== -->
+<section id="appendix-c" class="section-title" data-background-color="#1a1a2e">
+  <h1 style="color:var(--camunda-orange);">Appendix C</h1>
+  <h2 style="color:#fff; border-bottom:none;">DMN Best Practices</h2>
+</section>
+
+<section>
+  <h2>Hit Policies</h2>
+  <table style="font-size:0.42em;">
+    <thead><tr><th></th><th>Policy</th><th>When to use</th><th>Example</th></tr></thead>
+    <tbody>
+      <tr><td><strong>U</strong></td><td>Unique</td><td>Rules never overlap — exactly one match</td><td>Loan approval: one range → one result</td></tr>
+      <tr><td><strong>F</strong></td><td>First</td><td>Top-down — first match wins</td><td>Blocklist check first, then accept</td></tr>
+      <tr><td><strong>A</strong></td><td>Any</td><td>Multiple matches OK if same output</td><td>Redundant rules as safety net</td></tr>
+      <tr><td><strong>C</strong></td><td>Collect</td><td>All matches → list</td><td>Which review groups apply?</td></tr>
+      <tr><td><strong>C+</strong></td><td>Collect Sum</td><td>Sum outputs of all matches</td><td>Credit score: sum weighted factors</td></tr>
+      <tr><td><strong>C&lt; C&gt;</strong></td><td>Min / Max</td><td>Lowest or highest value</td><td>Find minimum risk</td></tr>
+      <tr><td><strong>R</strong></td><td>Rule Order</td><td>All matches → ordered list</td><td>Ordered list of discounts</td></tr>
+    </tbody>
+  </table>
+  <p style="font-size:0.5em; margin-top:0.2em;">
+    Our loan approval uses <span class="tag">U — Unique</span> — each input maps to exactly one output.
+    &bull; <a href="https://docs.camunda.io/docs/components/best-practices/modeling/choosing-the-dmn-hit-policy/" target="_blank" style="color:var(--camunda-orange);">Docs</a>
+  </p>
+</section>
+
+<section>
+  <h2>Unique vs First</h2>
+  <h3>The most common choice — and why it matters</h3>
+  <div style="display:flex; gap:1em; font-size:0.55em;">
+    <div style="flex:1;">
+      <h3 style="font-size:1.2em;"><span class="tag">U — Unique</span> Recommended</h3>
+      <table>
+        <thead><tr><th>Rate</th><th>Result</th></tr></thead>
+        <tbody>
+          <tr><td>&lt; 2.0</td><td>low</td></tr>
+          <tr><td>[2.0 .. 4.99]</td><td>medium</td></tr>
+          <tr><td>&ge; 5.0</td><td>high</td></tr>
+        </tbody>
+      </table>
+      <p style="color:#27ae60;">Rules never overlap.<br>Engine <strong>validates</strong> at runtime — error if two rules match.</p>
+    </div>
+    <div style="flex:1;">
+      <h3 style="font-size:1.2em;"><span class="tag">F — First</span> Use with caution</h3>
+      <table>
+        <thead><tr><th>Rate</th><th>Result</th></tr></thead>
+        <tbody>
+          <tr><td>&ge; 5.0</td><td>high</td></tr>
+          <tr><td>&ge; 2.0</td><td>medium</td></tr>
+          <tr><td>(any)</td><td>low</td></tr>
+        </tbody>
+      </table>
+      <p style="color:#c0392b;">Order matters!<br>Swapping rows 1 and 2 silently changes behavior.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Collect Sum — Credit Scoring</h2>
+  <h3>Hit policy C+ sums all matching rules</h3>
+  <table style="font-size:0.55em;">
+    <thead><tr><th>Factor</th><th>Condition</th><th>Points</th></tr></thead>
+    <tbody>
+      <tr><td>Payment history</td><td>no missed payments</td><td style="color:#27ae60;"><strong>+20</strong></td></tr>
+      <tr><td>Payment history</td><td>1-2 missed payments</td><td style="color:#c0392b;"><strong>-10</strong></td></tr>
+      <tr><td>Income ratio</td><td>debt &lt; 30% of income</td><td style="color:#27ae60;"><strong>+15</strong></td></tr>
+      <tr><td>Income ratio</td><td>debt &ge; 30% of income</td><td style="color:#c0392b;"><strong>-15</strong></td></tr>
+      <tr><td>Employment</td><td>&ge; 2 years at current job</td><td style="color:#27ae60;"><strong>+10</strong></td></tr>
+      <tr><td>Collateral</td><td>property offered</td><td style="color:#27ae60;"><strong>+10</strong></td></tr>
+    </tbody>
+  </table>
+  <p style="font-size:0.65em; margin-top:0.3em;">
+    Customer with no missed payments, low debt, 3yr job, no collateral:<br>
+    <strong>+20 +15 +10 = <span class="accent">45 points</span></strong> — multiple rules fire and sum automatically.
+  </p>
+</section>
+
+<section>
+  <h2>Table Design Tips</h2>
+  <table style="font-size:0.55em;">
+    <thead><tr><th>Practice</th><th>Do</th><th>Don't</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Naming</strong></td>
+        <td><code>interest_rate</code>, <code>monthly_income</code></td>
+        <td><code>x</code>, <code>var1</code>, <code>data</code></td>
+      </tr>
+      <tr>
+        <td><strong>Ranges</strong></td>
+        <td>No gaps, no overlaps: <code>&lt;2</code>, <code>[2..5)</code>, <code>&ge;5</code></td>
+        <td>Overlapping: <code>&le;5</code> and <code>&ge;5</code> with Unique</td>
+      </tr>
+      <tr>
+        <td><strong>Completeness</strong></td>
+        <td>Cover all input combinations</td>
+        <td>Missing edge cases → null output</td>
+      </tr>
+      <tr>
+        <td><strong>Outputs</strong></td>
+        <td>Use enums: <code>"low"</code>, <code>"medium"</code>, <code>"high"</code></td>
+        <td>Free-text: <code>"Low risk"</code>, <code>"low Risk"</code></td>
+      </tr>
+      <tr>
+        <td><strong>DRD structure</strong></td>
+        <td>Small focused tables chained via DRD</td>
+        <td>One giant table with 10+ input columns</td>
+      </tr>
+      <tr>
+        <td><strong>Decision IDs</strong></td>
+        <td><code>loan_approval</code>, <code>risk_assessment</code></td>
+        <td><code>Decision_1</code>, <code>table_abc</code></td>
+      </tr>
+    </tbody>
+  </table>
+  <p style="font-size:0.55em; margin-top:0.3em; color:#888;">
+    Our loan approval follows these: snake_case names, enum outputs, 3 small chained tables instead of 1 large one.
+  </p>
+</section>
+
+<section>
+  <h2>FEEL Expression Tips</h2>
+  <h3>Common patterns in decision table inputs</h3>
+  <table style="font-size:0.55em;">
+    <thead><tr><th>Pattern</th><th>FEEL syntax</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td>Comparison</td><td><code>&gt;= 5.0</code></td><td>Greater than or equal to 5</td></tr>
+      <tr><td>Range (inclusive)</td><td><code>[2..5]</code></td><td>Between 2 and 5, inclusive</td></tr>
+      <tr><td>Range (exclusive end)</td><td><code>[2..5)</code></td><td>2 &le; x &lt; 5 — avoids overlaps</td></tr>
+      <tr><td>Negation</td><td><code>not("high")</code></td><td>Anything except "high"</td></tr>
+      <tr><td>List</td><td><code>"a","b","c"</code></td><td>Matches any of these values</td></tr>
+      <tr><td>Empty</td><td><em>(leave blank)</em></td><td>Matches any input — wildcard</td></tr>
+    </tbody>
+  </table>
+  <p style="font-size:0.6em; margin-top:0.4em;">
+    <strong>Tip:</strong> Use <code>[2..5)</code> exclusive ranges instead of <code>[2..5]</code> inclusive to avoid
+    boundary overlaps with Unique hit policy.
+    <br>Our DMN has this issue at 5.0 — tests avoid it by using 6.0 instead.
+  </p>
+</section>
+
+<!-- ==================== APPENDIX D: DMN Internals ==================== -->
+<section id="appendix-d" class="section-title" data-background-color="#1a1a2e">
+  <h1 style="color:var(--camunda-orange);">Appendix D</h1>
+  <h2 style="color:#fff; border-bottom:none;">How DMN Executes in Camunda 8</h2>
+</section>
+
+<section>
+  <h2>DMN Execution Model</h2>
+  <h3>DMN engine is embedded in the Zeebe broker — no separate service</h3>
+  <div class="flow-diagram" style="font-size:0.7em; margin:0.2em auto;">
+<pre style="background:none; box-shadow:none; margin:0;">
+Client (gRPC / REST)
+  → Zeebe Gateway
+    → Partition Leader (single thread)
+      → Process Engine: reach Business Rule Task
+        → DMN Engine: evaluate decision
+          → FEEL Engine: match rules
+        ← result value
+      → Store in process variables
+      → Continue to next BPMN element
+</pre>
+  </div>
+  <table style="font-size:0.45em; margin-top:0.3em;">
+    <tbody>
+      <tr><td><strong>No jobs created</strong></td><td>Business rule tasks with <code>calledDecision</code> execute directly on the broker — no worker needed</td></tr>
+      <tr><td><strong>Synchronous</strong></td><td>DMN evaluation happens in-process, same thread as process engine</td></tr>
+      <tr><td><strong>FEEL engine</strong></td><td><a href="https://github.com/camunda/feel-scala" target="_blank" style="color:var(--camunda-orange);">camunda/feel-scala</a> — handles all expressions: inputs, outputs, and BPMN conditions</td></tr>
+      <tr><td><strong>Direct API</strong></td><td><code>newEvaluateDecisionCommand()</code> uses the same engine, same logic, no process context</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>DRD Evaluation Order</h2>
+  <h3>Sub-decisions are evaluated sequentially, not in parallel</h3>
+  <div class="flow-diagram" style="font-size:0.75em; margin:0.2em auto;">
+<pre style="background:none; box-shadow:none; margin:0;">
+  1. Topological sort of DRD graph
+  2. Evaluate: probability   → "high"     (sequential)
+  3. Evaluate: risk          → "medium"   (sequential)
+  4. Evaluate: loan_approval → true       (depends on both)
+</pre>
+  </div>
+  <table style="font-size:0.45em; margin-top:0.3em;">
+    <tbody>
+      <tr><td><strong>No parallelism</strong></td><td>All in-memory, microsecond-level — thread coordination overhead would exceed evaluation time</td></tr>
+      <tr><td><strong>Deterministic</strong></td><td>Required for Raft log replay — same inputs must always produce same execution order</td></tr>
+      <tr><td><strong>Single-output unwrap</strong></td><td>UNIQUE hit policy + 1 output column → raw value (<code>true</code>), not a map (<code>{"approved":true}</code>)</td></tr>
+      <tr><td><strong>DRD variable names</strong></td><td>Sub-decision results accessible by <strong>decision id</strong>, not output column name</td></tr>
+      <tr><td><strong>Version resolution</strong></td><td>Latest DMN version at time of task execution, not process start time</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ==================== APPENDIX E: BPMN vs DMN Versioning ==================== -->
+<section id="appendix-e" class="section-title" data-background-color="#1a1a2e">
+  <h1 style="color:var(--camunda-orange);">Appendix E</h1>
+  <h2 style="color:#fff; border-bottom:none;">BPMN vs DMN Versioning</h2>
+  <p style="color:#aaa; font-size:0.8em;">When each version is resolved and what happens to running instances</p>
+</section>
+
+<section>
+  <h2>BPMN vs DMN: Version Resolution</h2>
+  <table style="font-size:0.5em;">
+    <thead><tr><th></th><th>BPMN Process</th><th>DMN Decision</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Version locked at</strong></td>
+        <td>Process instance creation</td>
+        <td>Decision evaluation (task execution)</td>
+      </tr>
+      <tr>
+        <td><strong>Deploy new version</strong></td>
+        <td>Only new instances use it</td>
+        <td>All future evaluations use it — including running instances that haven't reached the task yet</td>
+      </tr>
+      <tr>
+        <td><strong>Running instances</strong></td>
+        <td>Stay on the BPMN version they started with</td>
+        <td>Pick up the latest DMN version when the Business Rule Task executes</td>
+      </tr>
+      <tr>
+        <td><strong>Migration needed?</strong></td>
+        <td>Yes — use migration API to move running instances to new BPMN version</td>
+        <td>No — DMN changes are picked up automatically</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>DMN-Only Change: No Redeployment of BPMN</h2>
+  <div class="flow-diagram">
+<pre style="font-size:0.7em; margin:0; background:none; box-shadow:none; text-align:left; line-height:1.3;">
+Timeline:
+─────────────────────────────────────────────────────────
+
+  t1: Deploy BPMN v1 + DMN v1
+  t2: Start process instance A          → uses BPMN v1
+  t3: Instance A reaches BRT            → evaluates DMN v1
+  t4: Deploy DMN v2 (only DMN, no BPMN)
+  t5: Start process instance B          → uses BPMN v1 (unchanged)
+  t6: Instance B reaches BRT            → evaluates DMN v2 ✓
+  t7: Start process instance C          → uses BPMN v1
+  t8: Instance C reaches BRT            → evaluates DMN v2 ✓
+
+BRT = Business Rule Task</pre>
+  </div>
+  <p style="font-size:0.55em;">DMN rule changes take effect immediately for all future evaluations — no BPMN redeployment or instance migration required.</p>
+</section>
+
+</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/plugin/highlight/highlight.js"></script>
+<script>
+Reveal.initialize({
+  hash: true,
+  slideNumber: 'c/t',
+  transition: 'slide',
+  plugins: [RevealHighlight]
+});
+function updateLogo() {
+  var bg = Reveal.getSlideBackground(Reveal.getIndices().h, Reveal.getIndices().v);
+  var isDark = bg && bg.style.backgroundColor && bg.style.backgroundColor !== '';
+  document.body.classList.toggle('dark-bg-active', isDark);
+}
+// Highlight active section in nav bar
+var sectionSlides = {};
+document.querySelectorAll('.slides > section[id]').forEach(function(sec) {
+  sectionSlides[sec.id] = Reveal.getIndices(sec).h;
+});
+function updateNav() {
+  var h = Reveal.getIndices().h;
+  var activeId = '';
+  var entries = Object.entries(sectionSlides).sort(function(a,b){ return a[1]-b[1]; });
+  for (var i = entries.length - 1; i >= 0; i--) {
+    if (h >= entries[i][1]) { activeId = entries[i][0]; break; }
+  }
+  document.querySelectorAll('.nav-bar a').forEach(function(a) {
+    a.classList.toggle('active', a.getAttribute('data-nav') === activeId);
+  });
+}
+Reveal.on('slidechanged', function() { updateLogo(); updateNav(); });
+Reveal.on('ready', function() { updateLogo(); updateNav(); });
+document.getElementById('fs-btn').addEventListener('click', function() {
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen();
+  } else {
+    document.exitFullscreen();
+  }
+});
+document.addEventListener('fullscreenchange', function() {
+  document.getElementById('fs-btn').textContent =
+    document.fullscreenElement ? '\u26F6 Exit Fullscreen' : '\u26F6 Fullscreen';
+});
+</script>
+</body>
+</html>

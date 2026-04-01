@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 230" font-family="Segoe UI, system-ui, sans-serif">
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#888"/>
+    </marker>
+    <marker id="ag" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#27ae60"/>
+    </marker>
+    <marker id="ar" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#c0392b"/>
+    </marker>
+  </defs>
+
+  <!-- Start Event -->
+  <circle cx="30" cy="100" r="15" fill="#fff" stroke="#1a1a2e" stroke-width="3"/>
+  <circle cx="30" cy="100" r="5" fill="#1a1a2e"/>
+  <text x="30" y="132" text-anchor="middle" font-size="9" fill="#555">Loan Request</text>
+
+  <!-- Arrow: Start → DMN -->
+  <line x1="45" y1="100" x2="68" y2="100" stroke="#888" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <!-- Business Rule Task: DMN Evaluate Loan -->
+  <rect x="70" y="70" width="130" height="58" rx="6" fill="#fef5e7" stroke="#fc5d0d" stroke-width="2"/>
+  <text x="135" y="92" text-anchor="middle" font-size="12" font-weight="bold" fill="#1a1a2e">Evaluate Loan</text>
+  <text x="135" y="108" text-anchor="middle" font-size="10" fill="#666">DMN: loan_approval</text>
+  <line x1="74" y1="74" x2="74" y2="85" stroke="#fc5d0d" stroke-width="1.5"/>
+  <line x1="74" y1="79" x2="84" y2="79" stroke="#fc5d0d" stroke-width="1.5"/>
+  <line x1="74" y1="83" x2="84" y2="83" stroke="#fc5d0d" stroke-width="1.5"/>
+
+  <!-- Arrow: DMN → Gateway -->
+  <line x1="200" y1="100" x2="228" y2="100" stroke="#888" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <!-- XOR Gateway: Approved? -->
+  <polygon points="250,70 280,100 250,130 220,100" fill="#fff" stroke="#1a1a2e" stroke-width="2.5"/>
+  <text x="250" y="105" text-anchor="middle" font-size="14" font-weight="bold" fill="#1a1a2e">X</text>
+  <text x="250" y="58" text-anchor="middle" font-size="9" fill="#888">Approved?</text>
+
+  <!-- ===== YES PATH (up): Disburse Loan API → End ===== -->
+  <line x1="265" y1="77" x2="318" y2="42" stroke="#27ae60" stroke-width="1.5" marker-end="url(#ag)"/>
+  <text x="278" y="52" font-size="9" font-weight="bold" fill="#27ae60">YES</text>
+
+  <!-- Service Task: Disburse Loan (REST Connector) -->
+  <rect x="320" y="14" width="120" height="55" rx="6" fill="#e8f4fd" stroke="#3498db" stroke-width="2"/>
+  <text x="380" y="36" text-anchor="middle" font-size="11" font-weight="bold" fill="#1a1a2e">Disburse Loan</text>
+  <text x="380" y="52" text-anchor="middle" font-size="10" fill="#666">REST Connector</text>
+  <rect x="424" y="18" width="10" height="10" rx="2" fill="#3498db" opacity="0.4"/>
+
+  <!-- Arrow: Disburse → End Approved -->
+  <line x1="440" y1="42" x2="468" y2="42" stroke="#888" stroke-width="1.5" marker-end="url(#a)"/>
+
+  <!-- End Event: Approved -->
+  <circle cx="484" cy="42" r="14" fill="#fff" stroke="#27ae60" stroke-width="3.5"/>
+  <circle cx="484" cy="42" r="5" fill="#27ae60"/>
+  <text x="484" y="12" text-anchor="middle" font-size="9" font-weight="bold" fill="#27ae60">Loan Approved</text>
+
+  <!-- ===== NO PATH (down): End Rejected ===== -->
+  <line x1="265" y1="123" x2="318" y2="173" stroke="#c0392b" stroke-width="1.5" marker-end="url(#ar)"/>
+  <text x="278" y="160" font-size="9" font-weight="bold" fill="#c0392b">NO</text>
+
+  <!-- End Event: Rejected -->
+  <circle cx="334" cy="180" r="14" fill="#fff" stroke="#c0392b" stroke-width="3.5"/>
+  <circle cx="334" cy="180" r="5" fill="#c0392b"/>
+  <text x="334" y="210" text-anchor="middle" font-size="9" font-weight="bold" fill="#c0392b">Loan Rejected</text>
+
+  <!-- Legend -->
+  <rect x="500" y="90" width="12" height="12" rx="2" fill="#fef5e7" stroke="#fc5d0d" stroke-width="1"/>
+  <text x="518" y="101" font-size="9" fill="#666">DMN Decision</text>
+  <rect x="500" y="110" width="12" height="12" rx="2" fill="#e8f4fd" stroke="#3498db" stroke-width="1"/>
+  <text x="518" y="121" font-size="9" fill="#666">REST Connector</text>
+  <polygon points="506,136 512,142 506,148 500,142" fill="#fff" stroke="#1a1a2e" stroke-width="1"/>
+  <text x="518" y="146" font-size="9" fill="#666">XOR Gateway</text>
+</svg>
