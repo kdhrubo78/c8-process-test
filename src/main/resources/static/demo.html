@@ -670,27 +670,32 @@ client.newDeployResourceCommand()
 
 <section>
   <h2>Versioning of Decisions</h2>
-  <table style="font-size:0.55em;">
-    <thead><tr><th>Scenario</th><th>What happens</th></tr></thead>
+  <p style="font-size:0.45em; margin-bottom:0.3em;">Behaviour depends on BRT <strong>binding type</strong>: <code>deployment</code> (default) pins DMN at deploy time; <code>latest</code> resolves at execution time.</p>
+  <table style="font-size:0.5em;">
+    <thead><tr><th>Scenario</th><th>binding = <code>deployment</code> (default)</th><th>binding = <code>latest</code></th></tr></thead>
     <tbody>
       <tr>
         <td><strong>Deploy new DMN version</strong></td>
+        <td>New version exists but existing BPMN deployments still pinned to old DMN</td>
         <td>New version becomes "latest" automatically</td>
       </tr>
       <tr>
         <td><strong>New process instance</strong></td>
-        <td>Business Rule Task evaluates latest DMN version when it executes</td>
+        <td>Uses DMN version pinned to its BPMN deployment</td>
+        <td>BRT evaluates latest DMN version when it executes</td>
       </tr>
       <tr>
         <td><strong>Running instance (hasn't reached BRT)</strong></td>
+        <td>Still uses the pinned DMN — migration needed to pick up new version</td>
         <td>Will pick up the new DMN version when it gets there</td>
       </tr>
       <tr>
         <td><strong>Running instance (already past BRT)</strong></td>
-        <td>Unaffected — decision was already evaluated</td>
+        <td colspan="2">Unaffected — decision was already evaluated</td>
       </tr>
       <tr>
         <td><strong>Rollback</strong></td>
+        <td>Re-deploy old BPMN+DMN pair → new instances use old DMN</td>
         <td>Re-deploy old DMN → becomes new "latest"</td>
       </tr>
     </tbody>
