@@ -1,11 +1,11 @@
 package com.camunda.c8processtest;
 
+import io.camunda.process.test.api.CamundaSpringProcessTest;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Import;
 
-@Import(TestcontainersConfiguration.class)
 @SpringBootTest
+@CamundaSpringProcessTest
 class C8ProcessTestApplicationTests {
 
     @Test
