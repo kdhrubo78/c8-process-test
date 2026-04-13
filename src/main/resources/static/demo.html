@@ -1066,9 +1066,171 @@ c8 mcp-proxy --profile=dev
 <section id="appendix-a" class="section-title" data-background-color="#1a1a2e">
   <h1 style="color:var(--camunda-orange);">Appendix A</h1>
   <h2 style="color:#fff; border-bottom:none;">RBAC for DMN Rules</h2>
-  <p style="color:#aaa; font-size:0.8em;">Self-Managed vs SaaS</p>
+  <p style="color:#aaa; font-size:0.8em;">Self-Managed , SaaS</p>
 </section>
 
+<!-- Self-Managed: Web Modeler Access Control -->
+<!-- Self-Managed: Web Modeler RBAC Overview -->
+<section>
+  <h2>Self-Managed — Web Modeler RBAC</h2>
+  <p style="font-size:0.6em; margin-bottom:0.5em;">RBAC works in <strong>two layers</strong></p>
+  <table style="font-size:0.52em;">
+    <thead><tr><th>Layer</th><th>Question it answers</th><th>Configured in</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>Platform roles</strong></td>
+        <td>Can I enter the application?</td>
+        <td>Management Identity</td>
+      </tr>
+      <tr>
+        <td><strong>Project roles</strong></td>
+        <td>What can I do in this application?</td>
+        <td>Web Modeler UI</td>
+      </tr>
+    </tbody>
+  </table>
+  <p style="font-size:0.5em; margin-top:0.5em; color:#c0392b;">Web Modeler RBAC (Management Identity) &ne; cluster authorization (Identity &rarr; Authorizations)</p>
+</section>
+
+<!-- Layer 1: Platform-level RBAC -->
+<section>
+  <h2>Layer 1 — Platform-Level RBAC</h2>
+  <p style="font-size:0.55em; margin-bottom:0.3em;"><strong>Management Identity</strong> governs Web Modeler, Console &amp; Optimize &mdash; separate from the identity system for runtime components (Zeebe, Operate, Tasklist)</p>
+  <p style="font-size:0.5em; margin-bottom:0.4em;">Classic RBAC model: <strong>Permissions</strong> &rarr; <strong>Roles</strong> &rarr; <strong>Users / Groups</strong></p>
+  <table style="font-size:0.5em;">
+    <thead><tr><th>Default Role</th><th>What it grants</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><code>Web Modeler</code></td>
+        <td>Access to Web Modeler &mdash; create &amp; collaborate on projects</td>
+      </tr>
+      <tr>
+        <td><code>Web Modeler Admin</code></td>
+        <td>Full access &mdash; all projects + collaborator management</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- Layer 2: Project-level Permissions -->
+<section>
+  <h2>Layer 2 — Project-Level Permissions</h2>
+  <p style="font-size:0.55em; margin-bottom:0.4em;">Files &amp; folders live in <strong>projects</strong> &mdash; access is defined at the project level</p>
+  <table style="font-size:0.5em;">
+    <thead><tr><th>Project Role</th><th>Capabilities</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Project Admin</strong></td><td>Edit project, folders, diagrams &amp; invite users</td></tr>
+      <tr><td><strong>Editor</strong></td><td>Edit folders &amp; diagrams</td></tr>
+      <tr><td><strong>Commenter</strong></td><td>View &amp; comment</td></tr>
+      <tr><td><strong>Viewer</strong></td><td>View only</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- Putting It Together -->
+<section>
+  <h2>Putting It Together — 3 Steps</h2>
+  <table style="font-size:0.5em;">
+    <thead><tr><th>Step</th><th>Where</th><th>Action</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>1</strong></td>
+        <td>Management Identity</td>
+        <td>Give the user a platform role (<code>Web Modeler</code> or <code>Web Modeler Admin</code>)</td>
+      </tr>
+      <tr>
+        <td><strong>2</strong></td>
+        <td>Web Modeler UI</td>
+        <td>Add them to the right project as <strong>Project Admin</strong>, <strong>Editor</strong>, <strong>Commenter</strong>, or <strong>Viewer</strong></td>
+      </tr>
+      <tr>
+        <td><strong>3</strong></td>
+        <td>Identity &rarr; Authorizations</td>
+        <td>If they need to <strong>deploy / run</strong> against a cluster, grant permissions on resource types (e.g., decision definitions)</td>
+      </tr>
+    </tbody>
+  </table>
+  <p style="font-size:0.5em; margin-top:0.5em; color:#c0392b;">Step 3 is configured in Identity (not Management Identity) &mdash; deploying requires cluster-level permissions</p>
+</section>
+
+<!-- Example 1: John gets full BPMN + DMN access -->
+<section>
+  <h2>Example 1 — John Gets Full Access</h2>
+  <p style="font-size:0.55em; margin-bottom:0.3em;">Two projects: <strong>"Loan Approval"</strong> (BPMN + DMN) and <strong>"Customer Onboarding"</strong> (BPMN + Forms)</p>
+  <table style="font-size:0.48em;">
+    <thead><tr><th>Step</th><th>Where</th><th>Action</th></tr></thead>
+    <tbody>
+      <tr><td><strong>1</strong></td><td>Management Identity</td><td>Assign John the <code>Web Modeler</code> platform role</td></tr>
+      <tr><td><strong>2</strong></td><td>Web Modeler &rarr; Loan Approval</td><td>Add John as <strong>Editor</strong></td></tr>
+      <tr><td><strong>3</strong></td><td>Web Modeler &rarr; Customer Onboarding</td><td>Add John as <strong>Editor</strong></td></tr>
+    </tbody>
+  </table>
+  <p style="font-size:0.55em; margin-top:0.5em;">Result: John can edit all BPMN, DMN &amp; Forms in both projects</p>
+</section>
+
+<!-- Example 2: John can do BPMN but not DMN -->
+<section>
+  <h2>Example 2 — Block John from DMN</h2>
+  <p style="font-size:0.55em; margin-bottom:0.3em;">Separate artifacts into projects: <strong>"BPMN Processes"</strong> for workflows, <strong>"DMN Rules"</strong> for decision tables</p>
+  <table style="font-size:0.48em;">
+    <thead><tr><th>Step</th><th>Where</th><th>Action</th></tr></thead>
+    <tbody>
+      <tr><td><strong>1</strong></td><td>Management Identity</td><td>Assign John the <code>Web Modeler</code> platform role</td></tr>
+      <tr><td><strong>2</strong></td><td>Web Modeler &rarr; BPMN Processes</td><td>Add John as <strong>Editor</strong></td></tr>
+      <tr><td><strong>3</strong></td><td>Web Modeler &rarr; DMN Rules</td><td>Do <strong>not</strong> add John</td></tr>
+    </tbody>
+  </table>
+  <p style="font-size:0.55em; margin-top:0.5em;">Result: John edits BPMN workflows &mdash; the "DMN Rules" project is invisible to him</p>
+  <p style="font-size:0.45em; margin-top:0.2em; color:#c0392b;">No per-file-type permission &mdash; separating into projects is the workaround</p>
+</section>
+
+<!-- Example 3: John can view DMN but not edit -->
+<section>
+  <h2>Example 3 — John Can View DMN, Not Edit</h2>
+  <p style="font-size:0.55em; margin-bottom:0.3em;">John needs to reference decision tables but should not modify them</p>
+  <table style="font-size:0.48em;">
+    <thead><tr><th>Step</th><th>Where</th><th>Action</th></tr></thead>
+    <tbody>
+      <tr><td><strong>1</strong></td><td>Management Identity</td><td>Assign John the <code>Web Modeler</code> platform role</td></tr>
+      <tr><td><strong>2</strong></td><td>Web Modeler &rarr; BPMN Processes</td><td>Add John as <strong>Editor</strong></td></tr>
+      <tr><td><strong>3</strong></td><td>Web Modeler &rarr; DMN Rules</td><td>Add John as <strong>Viewer</strong></td></tr>
+    </tbody>
+  </table>
+  <p style="font-size:0.55em; margin-top:0.5em;">Result: John edits BPMN but can only <strong>view</strong> DMN decision tables &mdash; no edits, no comments</p>
+</section>
+
+<!-- Example 4: John as Admin -->
+<section>
+  <h2>Example 4 — John as Admin</h2>
+  <p style="font-size:0.55em; margin-bottom:0.3em;">John needs to manage all projects &mdash; BPMN, DMN, and everything else</p>
+  <table style="font-size:0.48em;">
+    <thead><tr><th>Step</th><th>Where</th><th>Action</th></tr></thead>
+    <tbody>
+      <tr><td><strong>1</strong></td><td>Management Identity</td><td>Assign John the <code>Web Modeler Admin</code> platform role</td></tr>
+      <tr><td><strong>2</strong></td><td>Web Modeler</td><td>John toggles <strong>super-user mode</strong> from user menu</td></tr>
+    </tbody>
+  </table>
+  <p style="font-size:0.55em; margin-top:0.5em;">Result: John gets temporary Project Admin on <strong>all</strong> projects &mdash; no per-project assignment needed</p>
+</section>
+
+<!-- Example 5: Full picture — RBAC + Cluster Auth -->
+<section>
+  <h2>Example 5 — John Deploys DMN to a Cluster</h2>
+  <p style="font-size:0.55em; margin-bottom:0.3em;">John can edit DMN in Web Modeler, but deploying is a <strong>separate concern</strong></p>
+  <table style="font-size:0.48em;">
+    <thead><tr><th>Step</th><th>Where</th><th>Action</th></tr></thead>
+    <tbody>
+      <tr><td><strong>1</strong></td><td>Management Identity</td><td>Assign John the <code>Web Modeler</code> platform role</td></tr>
+      <tr><td><strong>2</strong></td><td>Web Modeler &rarr; DMN Rules</td><td>Add John as <strong>Editor</strong></td></tr>
+      <tr><td><strong>3</strong></td><td>Identity &rarr; Authorizations</td><td>Grant John <code>CREATE</code> on decision definitions</td></tr>
+    </tbody>
+  </table>
+  <p style="font-size:0.55em; margin-top:0.5em;">Result: John edits <strong>and</strong> deploys DMN &mdash; without Step 3 he can edit but deploy will fail</p>
+  <p style="font-size:0.45em; margin-top:0.2em; color:#c0392b;">Web Modeler RBAC (Management Identity) controls modeling &mdash; Identity &rarr; Authorizations controls deployment</p>
+</section>
+
+<!-- Self-Managed vs SaaS comparison -->
+    <!--
 <section>
   <h2>DMN Access Control</h2>
   <table style="font-size:0.52em;">
@@ -1101,7 +1263,7 @@ c8 mcp-proxy --profile=dev
     <span class="tag">Self-Managed</span> Custom roles via Identity (Keycloak / OIDC) — assign <code>READ</code> / <code>UPDATE</code> / <code>DELETE</code> per decision ID
   </p>
 </section>
-
+-->
 <!-- ==================== APPENDIX B: DMN as a Service ==================== -->
 <section id="appendix-b" class="section-title" data-background-color="#1a1a2e">
   <h1 style="color:var(--camunda-orange);">Appendix B</h1>
